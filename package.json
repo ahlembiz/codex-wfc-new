@@ -1,0 +1,40 @@
+{
+  "name": "ai-workflow-clinic-&-merch-store",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "tsx server.ts",
+    "dev:all": "npm run dev:api & npm run dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "npx tsx lib/scripts/seed.ts",
+    "db:studio": "prisma studio",
+    "vercel-build": "prisma generate && vite build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@google/genai": "^1.34.0",
+    "@prisma/client": "^5.22.0",
+    "@upstash/redis": "^1.34.0",
+    "@vercel/node": "^3.2.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  },
+  "prisma": {
+    "schema": "lib/prisma/schema.prisma"
+  }
+}

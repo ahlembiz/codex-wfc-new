@@ -1,0 +1,149 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getDecisionPipeline } from '../lib/engine/decisionPipeline';
+import { getScenarioBuilder } from '../lib/engine/scenarioBuilder';
+import { getCostCalculator } from '../lib/engine/costCalculator';
+import { getNarrativeService } from '../lib/engine/narrativeService';
+import { getCacheService } from '../lib/services/cacheService';
+import {
+  setCorsHeaders,
+  handleOptions,
+  handleError,
+  checkMethod,
+} from '../lib/middleware/errorHandler';
+import {
+  validateAssessmentData,
+  checkRateLimit,
+  getClientIdentifier,
+} from '../lib/middleware/validation';
+
+// Response type matching frontend expectations
+interface DiagnosisResponse {
+  scenarios: Array<{
+    title: string;
+    description: string;
+    complexityReductionScore: number;
+    displacementList: string[];
+    workflow: Array<{
+      phase: string;
+      tool: string;
+      aiAgentRole: string;
+      humanRole: string;
+      outcome: string;
+    }>;
+    costProjectionLatex: string;
+    currentCostYearly: number[];
+    projectedCostYearly: number[];
+  }>;
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    handleOptions(res);
+    return;
+  }
+
+  if (!checkMethod(req.method, ['POST'], res)) {
+    return;
+  }
+
+  try {
+    // Rate limiting
+    const clientId = getClientIdentifier(req);
+    if (!checkRateLimit(clientId, 10, 60000)) {
+      res.status(429).json({
+        error: 'TooManyRequests',
+        message: 'Rate limit exceeded. Please try again later.',
+        statusCode: 429,
+      });
+      return;
+    }
+
+    // Validate request body
+    const assessmentData = validateAssessmentData(req.body);
+
+    // Check cache
+    const cacheService = getCacheService();
+    const cached = await cacheService.getDiagnosis<DiagnosisResponse>(assessmentData);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+
+    // Run decision pipeline
+    const pipeline = getDecisionPipeline();
+    const context = await pipeline.run(assessmentData);
+
+    // Build scenarios
+    const scenarioBuilder = getScenarioBuilder();
+    const builtScenarios = await scenarioBuilder.buildAllScenarios(context);
+
+    // Calculate costs
+    const costCalculator = getCostCalculator();
+    const teamSize = parseTeamSize(assessmentData.teamSize);
+    const costAnalyses = new Map<string, ReturnType<typeof costCalculator.calculateCostAnalysis>>();
+
+    for (const scenario of builtScenarios) {
+      const analysis = costCalculator.calculateCostAnalysis(
+        scenario,
+        context.userTools,
+        teamSize
+      );
+      costAnalyses.set(scenario.title, analysis);
+    }
+
+    // Generate narratives (optional - can be disabled for speed)
+    const narrativeService = getNarrativeService();
+    let scenariosWithNarratives = builtScenarios;
+
+    try {
+      scenariosWithNarratives = await narrativeService.generateNarratives(
+        builtScenarios,
+        context,
+        costAnalyses
+      );
+    } catch (narrativeError) {
+      console.error('Narrative generation failed, using fallback:', narrativeError);
+      // Scenarios already have fallback descriptions from builder
+    }
+
+    // Format response to match frontend expectations
+    const response: DiagnosisResponse = {
+      scenarios: scenariosWithNarratives.map(scenario => {
+        const costAnalysis = costAnalyses.get(scenario.title);
+
+        return {
+          title: scenario.title,
+          description: scenario.description || `Recommended stack: ${scenario.tools.map(t => t.displayName).join(', ')}`,
+          complexityReductionScore: scenario.complexityReductionScore,
+          displacementList: scenario.displacementList,
+          workflow: scenario.workflow,
+          costProjectionLatex: costAnalysis?.costProjectionLatex || '',
+          currentCostYearly: costAnalysis?.currentYearlyCosts || [0, 0, 0, 0, 0],
+          projectedCostYearly: costAnalysis?.projectedYearlyCosts || [0, 0, 0, 0, 0],
+        };
+      }),
+    };
+
+    // Cache the result
+    await cacheService.setDiagnosis(assessmentData, response);
+
+    res.status(200).json(response);
+  } catch (error) {
+    handleError(error, res);
+  }
+}
+
+function parseTeamSize(teamSize: string): number {
+  // Extract first number from team size string
+  const match = teamSize.match(/\d+/);
+  if (match) {
+    return parseInt(match[0], 10);
+  }
+  // Default to 5 if parsing fails
+  return 5;
+}

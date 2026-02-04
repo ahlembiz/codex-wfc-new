@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Workflow Clinic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyJYlKg34BSPcxdfvZc0juu9dSnLE054W5CW+oVG+ngF/XadeIuTujxgyaWmre" crossorigin="anonymous"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+      
+      :root {
+        /* Vibrant "Pop" Colors */
+        --awc-red: #FF3B30;
+        --awc-blue: #2979FF; /* Brighter Blue */
+        --awc-black: #0B0B0B;
+        --awc-white: #FFFFFF;
+      }
+
+      body {
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background-color: var(--awc-white);
+        color: var(--awc-black);
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Swiss Typography Enforcers */
+      h1, h2, h3, h4, p, span, div {
+        text-align: left; 
+      }
+      
+      .text-center-force {
+        text-align: center !important;
+      }
+
+      .text-center-force * {
+        text-align: center !important;
+      }
+
+      /* --- 3D PILL SYSTEM --- */
+      
+      .pill-3d {
+        position: absolute;
+        border-radius: 9999px;
+        /* Clean 3D Plastic Effect - No white rim shadows */
+        box-shadow: 
+          /* Subtle border to define the white shape against white bg */
+          inset 0 0 0 1px rgba(0,0,0,0.03),
+          /* Subtle Bottom Shadow (Volume) */
+          inset 0px -6px 12px rgba(0, 0, 0, 0.1),
+          /* Soft Ambient Drop Shadow */
+          10px 15px 30px rgba(0, 0, 0, 0.15);
+        z-index: 0;
+        /* Ensure background works */
+        background-size: 100% 100%;
+      }
+
+      /* Specular Highlight (The Gloss) - Sharp but slightly more transparent to let color pop */
+      .pill-3d::after {
+        content: '';
+        position: absolute;
+        top: 6%;
+        left: 6%;
+        right: 6%;
+        height: 35%;
+        border-radius: 9999px;
+        /* Reduced opacity (0.7) to prevent "white shadow" look on color */
+        background: linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.0) 100%);
+        pointer-events: none;
+      }
+
+      /* Vertical Split Color Logic (Relative to Horizontal Pill) */
+      /* Hard stop gradient for 50/50 split. Using #FFFFFF for maximum contrast/pop */
+      .pill-red {
+        background: linear-gradient(90deg, var(--awc-red) 50%, #FFFFFF 50%);
+      }
+      
+      .pill-blue {
+        background: linear-gradient(90deg, var(--awc-blue) 50%, #FFFFFF 50%);
+      }
+
+      /* Falling Animations */
+      @keyframes fall {
+        0% {
+          transform: translateY(-200%) rotate(var(--r-start));
+        }
+        100% {
+          transform: translateY(120vh) rotate(var(--r-end));
+        }
+      }
+
+      .animate-fall {
+        animation: fall linear infinite;
+        will-change: transform;
+      }
+
+      /* Semantic Grid Utilities */
+      .awc-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 8px; /* 8px base unit */
+      }
+      
+      /* UI Component Overrides - Strict Rectangles */
+      input, select, textarea, button {
+        border-radius: 0px !important;
+      }
+      
+      /* Selection Color */
+      ::selection {
+        background: var(--awc-blue);
+        color: var(--awc-white);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

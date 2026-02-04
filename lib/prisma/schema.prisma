@@ -1,0 +1,298 @@
+// Prisma schema for AI Workflow Clinic
+// Database: Supabase/Postgres
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum ToolCategory {
+  PROJECT_MANAGEMENT
+  DOCUMENTATION
+  COMMUNICATION
+  DEVELOPMENT
+  DESIGN
+  MEETINGS
+  AUTOMATION
+  AI_ASSISTANTS
+  ANALYTICS
+  OTHER
+}
+
+enum Complexity {
+  SIMPLE
+  MODERATE
+  ADVANCED
+  EXPERT
+}
+
+enum PricingTier {
+  FREE
+  FREEMIUM
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TeamSize {
+  SOLO
+  SMALL         // 2-5
+  MEDIUM        // 6-20
+  LARGE         // 21-100
+  ENTERPRISE    // 100+
+}
+
+enum Stage {
+  BOOTSTRAPPING
+  PRE_SEED
+  EARLY_SEED
+  GROWTH
+  ESTABLISHED
+}
+
+enum TechSavviness {
+  NEWBIE
+  DECENT
+  NINJA
+}
+
+enum RedundancyStrength {
+  FULL
+  PARTIAL
+  NICHE
+}
+
+enum RecommendationHint {
+  PREFER_A
+  PREFER_B
+  CONTEXT_DEPENDENT
+}
+
+enum ReplacementReasonType {
+  COST_SAVINGS
+  FEATURE_SUPERSET
+  BETTER_INTEGRATION
+  SIMPLER_UX
+  CONSOLIDATION
+  COMPLIANCE
+  AI_NATIVE
+}
+
+enum IntegrationQuality {
+  NATIVE
+  DEEP
+  BASIC
+  WEBHOOK_ONLY
+  ZAPIER_ONLY
+}
+
+enum WorkflowPhase {
+  IDEATION
+  PLANNING
+  EXECUTION
+  REVIEW
+  ITERATE
+}
+
+enum ScenarioType {
+  MONO_STACK
+  NATIVE_INTEGRATOR
+  AGENTIC_LEAN
+  STARTER_PACK
+}
+
+// ============================================
+// MAIN TABLES
+// ============================================
+
+model Tool {
+  id                    String        @id @default(cuid())
+  name                  String        @unique // canonical lowercase name (e.g., "notion")
+  displayName           String        // display name (e.g., "Notion")
+  category              ToolCategory
+  aliases               String[]      // alternative names/spellings
+
+  // Use cases and features
+  primaryUseCases       String[]
+  keyFeatures           String[]
+
+  // Complexity and pricing
+  complexity            Complexity    @default(MODERATE)
+  typicalPricingTier    PricingTier   @default(FREEMIUM)
+  estimatedCostPerUser  Float?        // monthly cost per user in USD
+  hasFreeForever        Boolean       @default(false)
+
+  // Best-fit criteria
+  bestForTeamSize       TeamSize[]
+  bestForStage          Stage[]
+  bestForTechSavviness  TechSavviness[]
+
+  // Compliance capabilities
+  soc2                  Boolean       @default(false)
+  hipaa                 Boolean       @default(false)
+  gdpr                  Boolean       @default(false)
+  euDataResidency       Boolean       @default(false)
+  selfHosted            Boolean       @default(false)
+  airGapped             Boolean       @default(false)
+
+  // AI capabilities
+  hasAiFeatures         Boolean       @default(false)
+  aiFeatureDescription  String?
+
+  // URLs
+  websiteUrl            String?
+  logoUrl               String?
+
+  // Metadata
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  // Relations
+  integrationsFrom      ToolIntegration[]  @relation("IntegrationsFrom")
+  integrationsTo        ToolIntegration[]  @relation("IntegrationsTo")
+  redundancyAsA         ToolRedundancy[]   @relation("RedundancyToolA")
+  redundancyAsB         ToolRedundancy[]   @relation("RedundancyToolB")
+  replacementsFrom      ToolReplacement[]  @relation("ReplacementFrom")
+  replacementsTo        ToolReplacement[]  @relation("ReplacementTo")
+  bundleTools           BundleTool[]
+  anchorBundles         ToolBundle[]       @relation("AnchorTool")
+  phaseRecommendations  PhaseToolRecommendation[]
+
+  @@index([category])
+  @@index([name])
+}
+
+model ToolIntegration {
+  id                 String             @id @default(cuid())
+  toolId             String
+  integratesWithId   String
+  integrationQuality IntegrationQuality
+  description        String?
+
+  tool               Tool               @relation("IntegrationsFrom", fields: [toolId], references: [id], onDelete: Cascade)
+  integratesWith     Tool               @relation("IntegrationsTo", fields: [integratesWithId], references: [id], onDelete: Cascade)
+
+  createdAt          DateTime           @default(now())
+
+  @@unique([toolId, integratesWithId])
+  @@index([toolId])
+  @@index([integratesWithId])
+}
+
+model ToolRedundancy {
+  id                    String             @id @default(cuid())
+  toolAId               String
+  toolBId               String
+
+  overlappingUseCases   String[]
+  overlappingFeatures   String[]
+  redundancyStrength    RedundancyStrength
+  recommendationHint    RecommendationHint
+
+  notes                 String?
+
+  toolA                 Tool               @relation("RedundancyToolA", fields: [toolAId], references: [id], onDelete: Cascade)
+  toolB                 Tool               @relation("RedundancyToolB", fields: [toolBId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@unique([toolAId, toolBId])
+  @@index([toolAId])
+  @@index([toolBId])
+}
+
+model ToolReplacement {
+  id              String                @id @default(cuid())
+  fromToolId      String
+  toToolId        String
+
+  reasonType      ReplacementReasonType
+  reasonText      String
+  context         String?               // when this replacement makes sense
+  conditions      Json?                 // JSONB for complex conditions
+
+  fromTool        Tool                  @relation("ReplacementFrom", fields: [fromToolId], references: [id], onDelete: Cascade)
+  toTool          Tool                  @relation("ReplacementTo", fields: [toToolId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([fromToolId, toToolId])
+  @@index([fromToolId])
+  @@index([toToolId])
+}
+
+model ToolBundle {
+  id                      String        @id @default(cuid())
+  name                    String        @unique
+  description             String
+
+  // Tool roles in the bundle (stored as JSON)
+  toolRoles               Json          // { toolId: "role description" }
+
+  primaryUseCasesCovered  String[]
+
+  // Best-fit criteria
+  bestForTeamSize         TeamSize[]
+  bestForStage            Stage[]
+  bestForTechSavviness    TechSavviness[]
+
+  // Anchor tool (optional)
+  anchorToolId            String?
+  anchorTool              Tool?         @relation("AnchorTool", fields: [anchorToolId], references: [id])
+
+  scenarioType            ScenarioType
+
+  // Monthly cost estimate
+  estimatedMonthlyCost    Float?
+
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  // Many-to-many with tools
+  tools                   BundleTool[]
+
+  @@index([scenarioType])
+}
+
+model BundleTool {
+  id        String     @id @default(cuid())
+  bundleId  String
+  toolId    String
+  role      String?    // role of this tool in the bundle
+
+  bundle    ToolBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  tool      Tool       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, toolId])
+  @@index([bundleId])
+  @@index([toolId])
+}
+
+model PhaseToolRecommendation {
+  id               String          @id @default(cuid())
+  phase            WorkflowPhase
+  toolId           String
+  role             String          // what role does this tool play in this phase
+  techSavviness    TechSavviness[]
+  note             String?
+  displayOrder     Int             @default(0)
+
+  tool             Tool            @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([phase])
+  @@index([toolId])
+}
