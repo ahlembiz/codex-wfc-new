@@ -66,14 +66,14 @@ export class CacheService {
   // Diagnosis Cache
   // ============================================
 
-  async getDiagnosis<T>(assessmentData: Record<string, unknown>): Promise<T | null> {
-    const hash = hashAssessmentData(assessmentData);
+  async getDiagnosis<T>(assessmentData: object): Promise<T | null> {
+    const hash = hashAssessmentData(assessmentData as Record<string, unknown>);
     const key = CACHE_KEYS.diagnosis(hash);
     return this.redis.get<T>(key);
   }
 
-  async setDiagnosis<T>(assessmentData: Record<string, unknown>, result: T): Promise<void> {
-    const hash = hashAssessmentData(assessmentData);
+  async setDiagnosis<T>(assessmentData: object, result: T): Promise<void> {
+    const hash = hashAssessmentData(assessmentData as Record<string, unknown>);
     const key = CACHE_KEYS.diagnosis(hash);
     await this.redis.set(key, result, { ex: CACHE_TTL.diagnosis });
   }
@@ -81,6 +81,10 @@ export class CacheService {
   // ============================================
   // Cache Invalidation
   // ============================================
+
+  async invalidateToolById(toolId: string): Promise<void> {
+    await this.redis.del(CACHE_KEYS.toolById(toolId));
+  }
 
   async invalidateToolCache(): Promise<void> {
     // Clear the all-tools cache

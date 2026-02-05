@@ -3,9 +3,10 @@ import React from 'react';
 interface LandingProps {
   onStart: () => void;
   onScrubs: () => void;
+  onAdmin: () => void;
 }
 
-const Landing: React.FC<LandingProps> = ({ onStart, onScrubs }) => {
+const Landing: React.FC<LandingProps> = ({ onStart, onScrubs, onAdmin }) => {
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-white flex flex-col items-center justify-center">
       
@@ -121,8 +122,28 @@ const Landing: React.FC<LandingProps> = ({ onStart, onScrubs }) => {
         </div>
 
         <p className="mt-8 text-[10px] font-mono text-gray-400 uppercase tracking-widest">
-           Est. 2025 • Zurich / SF
+           Est. 2025 &bull; Zurich / SF
         </p>
+        <button
+          onClick={onAdmin}
+          style={{
+            marginTop: 12,
+            fontSize: 8,
+            fontFamily: "'JetBrains Mono', monospace",
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            color: 'rgba(0,0,0,0.3)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.3s',
+            padding: '4px 8px',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#E53935'; }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'rgba(0,0,0,0.3)'; }}
+        >
+          Staff Portal
+        </button>
 
       </div>
     </div>

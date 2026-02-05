@@ -24,7 +24,9 @@ enum ToolCategory {
   MEETINGS
   AUTOMATION
   AI_ASSISTANTS
+  AI_BUILDERS
   ANALYTICS
+  GROWTH
   OTHER
 }
 
@@ -152,6 +154,17 @@ model Tool {
   websiteUrl            String?
   logoUrl               String?
 
+  // Popularity & Trust
+  popularityScore       Int           @default(50) // 0-100 composite score
+  popularityAdoption    Int           @default(50) // 0-100: market penetration, user count
+  popularitySentiment   Int           @default(50) // 0-100: community love, positive reviews
+  popularityMomentum    Int           @default(50) // 0-100: growth trajectory, trending
+  popularityEcosystem   Int           @default(50) // 0-100: integrations, plugins, partners
+  popularityReliability Int           @default(50) // 0-100: uptime, stability, maturity
+  lastVerified          DateTime      @default(now())
+  fundingStage          String?       // Seed, Series A, B, C, Public, Bootstrapped
+  foundedYear           Int?
+
   // Metadata
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -169,6 +182,7 @@ model Tool {
 
   @@index([category])
   @@index([name])
+  @@index([popularityScore])
 }
 
 model ToolIntegration {

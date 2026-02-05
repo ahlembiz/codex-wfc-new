@@ -1,4 +1,4 @@
-import type { AssessmentData, DiagnosisResult } from '../types';
+import type { AssessmentData, DiagnosisResult, AdminToolData } from '../types';
 import { runDiagnosis as runGeminiDiagnosis } from './geminiService';
 
 // API base URL - uses environment variable or falls back to relative path
@@ -111,6 +111,26 @@ export async function matchToolNames(names: string[]): Promise<Map<string, ToolM
   }
 
   return results;
+}
+
+/**
+ * Get all tools with full fields for admin dashboard
+ */
+export async function getAllToolsAdmin(): Promise<AdminToolData[]> {
+  const isApiAvailable = await checkApiAvailability();
+
+  if (!isApiAvailable) {
+    return [];
+  }
+
+  const response = await fetch(`${API_BASE_URL}/tools`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch tools: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.data as AdminToolData[];
 }
 
 /**
@@ -239,6 +259,28 @@ export interface Bundle {
   bestForTechSavviness: string[];
   primaryUseCasesCovered: string[];
   estimatedMonthlyCost: number | null;
+}
+
+/**
+ * Update a tool's popularity sub-scores via PATCH API
+ */
+export async function updateToolPopularity(
+  toolId: string,
+  subScores: Record<string, number>,
+): Promise<AdminToolData> {
+  const response = await fetch(`${API_BASE_URL}/tools/${toolId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subScores),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Update failed' }));
+    throw new Error(err.message || `Update failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data as AdminToolData;
 }
 
 export interface BundleFilters {

@@ -37,17 +37,54 @@ export enum AnchorType {
   None = "We're just starting! (no Anchor tool yet)"
 }
 
+// Canonical compliance requirements
+export enum ComplianceRequirement {
+  SelfHosted = "SELF_HOSTED",
+  SOC2 = "SOC2",
+  HIPAA = "HIPAA",
+  EUDataResidency = "EU_DATA_RESIDENCY",
+  AirGapped = "AIR_GAPPED"
+}
+
+// UI labels for compliance requirements (for display/mapping)
+export const COMPLIANCE_UI_LABELS: Record<ComplianceRequirement, string> = {
+  [ComplianceRequirement.SelfHosted]: "Self-hosted required",
+  [ComplianceRequirement.SOC2]: "SOC 2 compliance",
+  [ComplianceRequirement.HIPAA]: "HIPAA compliance",
+  [ComplianceRequirement.EUDataResidency]: "EU data residency",
+  [ComplianceRequirement.AirGapped]: "Air-gapped environment"
+};
+
+// Canonical team size buckets
+export enum TeamSizeBucket {
+  Solo = "SOLO",
+  Small = "SMALL",       // 2-5
+  Medium = "MEDIUM",     // 6-20
+  Large = "LARGE",       // 21-100
+  Enterprise = "ENTERPRISE" // 100+
+}
+
+// UI labels for team size buckets (for display)
+export const TEAM_SIZE_UI_LABELS: Record<TeamSizeBucket, string> = {
+  [TeamSizeBucket.Solo]: "Solo (1 person)",
+  [TeamSizeBucket.Small]: "Small (2-5)",
+  [TeamSizeBucket.Medium]: "Medium (6-20)",
+  [TeamSizeBucket.Large]: "Large (21-100)",
+  [TeamSizeBucket.Enterprise]: "Enterprise (100+)"
+};
+
 export interface AssessmentData {
   company: string;
   stage: Stage;
-  teamSize: string;
+  teamSize: TeamSizeBucket;
+  teamSizeRaw?: string; // Optional free-text for backward compatibility
   currentTools: string;
   philosophy: AutomationPhilosophy;
   techSavviness: TechSavviness;
   budgetPerUser: number;
   costSensitivity: CostSensitivity;
   sensitivity: ProductSensitivity;
-  highStakesRequirements: string[];
+  highStakesRequirements: ComplianceRequirement[];
   agentReadiness: boolean;
   anchorType: AnchorType;
   painPoints: string[];
@@ -78,7 +115,43 @@ export interface DiagnosisResult {
   scenarios: Scenario[];
 }
 
-export type ViewState = 'LANDING' | 'INTAKE' | 'ANALYZING' | 'DIAGNOSIS' | 'SCRUBS' | 'ERROR';
+export type ViewState = 'LANDING' | 'INTAKE' | 'ANALYZING' | 'DIAGNOSIS' | 'SCRUBS' | 'ERROR' | 'ADMIN';
+
+// Full tool data for Admin Dashboard (all Prisma Tool fields)
+export interface AdminToolData {
+  id: string;
+  name: string;
+  displayName: string;
+  category: string;
+  aliases: string[];
+  primaryUseCases: string[];
+  keyFeatures: string[];
+  complexity: 'SIMPLE' | 'MODERATE' | 'ADVANCED' | 'EXPERT';
+  typicalPricingTier: 'FREE' | 'FREEMIUM' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  estimatedCostPerUser: number | null;
+  hasFreeForever: boolean;
+  bestForTeamSize: string[];
+  bestForStage: string[];
+  bestForTechSavviness: string[];
+  soc2: boolean;
+  hipaa: boolean;
+  gdpr: boolean;
+  euDataResidency: boolean;
+  selfHosted: boolean;
+  airGapped: boolean;
+  hasAiFeatures: boolean;
+  aiFeatureDescription: string | null;
+  websiteUrl: string | null;
+  popularityScore?: number;
+  popularityAdoption?: number;
+  popularitySentiment?: number;
+  popularityMomentum?: number;
+  popularityEcosystem?: number;
+  popularityReliability?: number;
+  lastVerified?: string;
+  fundingStage?: string | null;
+  foundedYear?: number | null;
+}
 
 // Tool matching metadata types (for API responses)
 export interface ToolMatchMetadata {
@@ -111,6 +184,10 @@ export interface ToolData {
   estimatedCostPerUser: number | null;
   hasAiFeatures: boolean;
   aiFeatureDescription?: string;
+  popularityScore: number;
+  lastVerified: string;
+  fundingStage?: string;
+  foundedYear?: number;
 }
 
 // Bundle data types

@@ -72,9 +72,9 @@ export class WorkflowGenerator {
     const phasePreferences: Record<WorkflowPhase, string[]> = {
       IDEATION: ['DOCUMENTATION', 'AI_ASSISTANTS', 'PROJECT_MANAGEMENT'],
       PLANNING: ['PROJECT_MANAGEMENT', 'DOCUMENTATION'],
-      EXECUTION: ['DEVELOPMENT', 'DESIGN', 'AI_ASSISTANTS'],
+      EXECUTION: ['DEVELOPMENT', 'AI_BUILDERS', 'DESIGN', 'AI_ASSISTANTS'],
       REVIEW: ['MEETINGS', 'COMMUNICATION', 'DOCUMENTATION'],
-      ITERATE: ['ANALYTICS', 'PROJECT_MANAGEMENT', 'DOCUMENTATION'],
+      ITERATE: ['ANALYTICS', 'GROWTH', 'PROJECT_MANAGEMENT', 'DOCUMENTATION'],
     };
 
     const preferred = phasePreferences[phase];
@@ -228,7 +228,9 @@ export class WorkflowGenerator {
       MEETINGS: ['Slack', 'Notion', 'Google Calendar'],
       AUTOMATION: ['All major tools via API'],
       AI_ASSISTANTS: ['VS Code', 'Slack', 'Notion'],
+      AI_BUILDERS: ['GitHub', 'Vercel', 'Supabase'],
       ANALYTICS: ['Slack', 'Notion', 'Google Sheets'],
+      GROWTH: ['Slack', 'Zapier', 'Segment'],
     };
 
     const category = tool.category as string;

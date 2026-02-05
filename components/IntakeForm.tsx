@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { AssessmentData, Stage, AutomationPhilosophy, ProductSensitivity, AnchorType, TechSavviness, CostSensitivity } from '../types';
+import {
+  AssessmentData,
+  Stage,
+  AutomationPhilosophy,
+  ProductSensitivity,
+  AnchorType,
+  TechSavviness,
+  CostSensitivity,
+  TeamSizeBucket,
+  ComplianceRequirement,
+  TEAM_SIZE_UI_LABELS,
+  COMPLIANCE_UI_LABELS
+} from '../types';
 
 interface IntakeFormProps {
   onSubmit: (data: AssessmentData) => void;
@@ -9,7 +21,8 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
   const [formData, setFormData] = useState<AssessmentData>({
     company: '',
     stage: Stage.EarlySeed,
-    teamSize: '',
+    teamSize: TeamSizeBucket.Small,
+    teamSizeRaw: undefined,
     currentTools: '',
     philosophy: AutomationPhilosophy.Hybrid,
     techSavviness: TechSavviness.Decent,
@@ -42,7 +55,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
     });
   };
 
-  const handleHighStakesToggle = (req: string) => {
+  const handleHighStakesToggle = (req: ComplianceRequirement) => {
     setFormData(prev => {
       const exists = prev.highStakesRequirements.includes(req);
       if (exists) {
@@ -84,13 +97,8 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
     "I have a small budget"
   ];
 
-  const highStakesOptions = [
-    "Self-hosted required",
-    "SOC 2 compliance",
-    "HIPAA compliance",
-    "EU data residency",
-    "Air-gapped environment"
-  ];
+  // Use canonical enum values - UI labels come from COMPLIANCE_UI_LABELS
+  const highStakesOptions = Object.values(ComplianceRequirement);
 
   const getCostSensitivitySubtext = (val: CostSensitivity) => {
     switch (val) {
@@ -168,19 +176,39 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <div className="space-y-2">
                     <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">Team Size</label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full bg-white border border-gray-300 p-4 text-sm focus:border-[#0B0B0B] focus:ring-0 outline-none rounded-none"
-                      placeholder="e.g. 1 PM, 2 Eng"
-                      value={formData.teamSize}
-                      onChange={(e) => handleChange('teamSize', e.target.value)}
-                    />
+                    <div className="relative">
+                      <select
+                        required
+                        className="w-full bg-white border border-gray-300 p-4 text-sm focus:border-[#0B0B0B] focus:ring-0 outline-none appearance-none rounded-none"
+                        value={formData.teamSize}
+                        onChange={(e) => {
+                          const value = e.target.value as TeamSizeBucket;
+                          handleChange('teamSize', value);
+                          // Auto-check solo founder if Solo is selected
+                          if (value === TeamSizeBucket.Solo) {
+                            handleChange('isSoloFounder', true);
+                          }
+                        }}
+                      >
+                        {Object.values(TeamSizeBucket).map(size => (
+                          <option key={size} value={size}>{TEAM_SIZE_UI_LABELS[size]}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                    </div>
                     <label className="flex items-center space-x-3 cursor-pointer pt-2">
                         <input
                           type="checkbox"
                           checked={formData.isSoloFounder}
-                          onChange={(e) => handleChange('isSoloFounder', e.target.checked)}
+                          onChange={(e) => {
+                            handleChange('isSoloFounder', e.target.checked);
+                            // Auto-select Solo team size if checked
+                            if (e.target.checked) {
+                              handleChange('teamSize', TeamSizeBucket.Solo);
+                            }
+                          }}
                           className="h-4 w-4 text-[#0B0B0B] border-gray-300 focus:ring-0 rounded-none accent-[#0B0B0B]"
                         />
                         <span className="text-xs font-bold text-gray-600">I'm a Solo-founder <span className="font-normal italic opacity-75">(tiny violin plays)</span></span>
@@ -419,7 +447,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
                                   checked={formData.highStakesRequirements.includes(opt)}
                                   onChange={() => handleHighStakesToggle(opt)}
                                 />
-                                <span className={`text-xs font-bold uppercase tracking-tight ${formData.highStakesRequirements.includes(opt) ? 'text-[#0B0B0B]' : 'text-gray-400'}`}>{opt}</span>
+                                <span className={`text-xs font-bold uppercase tracking-tight ${formData.highStakesRequirements.includes(opt) ? 'text-[#0B0B0B]' : 'text-gray-400'}`}>{COMPLIANCE_UI_LABELS[opt]}</span>
                              </label>
                            ))}
                         </div>

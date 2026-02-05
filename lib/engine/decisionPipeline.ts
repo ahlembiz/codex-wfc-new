@@ -2,19 +2,32 @@ import { getToolService } from '../services/toolService';
 import { getRedundancyService } from '../services/redundancyService';
 import { getReplacementService, type ReplacementContext } from '../services/replacementService';
 import type { Tool, TeamSize, Stage, TechSavviness, PricingTier } from '@prisma/client';
+import { ComplianceRequirement, TeamSizeBucket } from '../../types';
 
-// Assessment data from frontend (matches types.ts enums)
+export interface ScoredTool {
+  tool: Tool;
+  score: number;
+  breakdown: {
+    fitScore: number;
+    popularityScore: number;
+    costScore: number;
+    aiScore: number;
+  };
+}
+
+// Assessment data from frontend - uses canonical enum types
 export interface AssessmentInput {
   company: string;
   stage: string; // "Bootstrapping" | "Pre-Seed" | "Early-Seed" | "Growth" | "Established"
-  teamSize: string; // e.g., "1", "2-5", "6-20", etc.
+  teamSize: TeamSizeBucket; // Canonical enum value
+  teamSizeRaw?: string; // Optional raw value for backward compatibility
   currentTools: string; // comma-separated tool names
   philosophy: string; // "Co-Pilot" | "Hybrid" | "Auto-Pilot"
   techSavviness: string; // "Newbie" | "Decent" | "Ninja"
   budgetPerUser: number;
   costSensitivity: string; // "Price-First" | "Balanced" | "Value-First"
   sensitivity: string; // "Low-Stakes" | "High-Stakes"
-  highStakesRequirements: string[]; // ["SOC 2", "HIPAA", etc.]
+  highStakesRequirements: ComplianceRequirement[]; // Canonical enum values
   agentReadiness: boolean;
   anchorType: string;
   painPoints: string[];
@@ -63,8 +76,8 @@ export class DecisionPipeline {
       }
     }
 
-    // 2. Convert enums
-    const teamSizeEnum = this.parseTeamSize(assessment.teamSize);
+    // 2. Convert enums - teamSize is already canonical, just map to Prisma enum
+    const teamSizeEnum = this.mapTeamSizeToPrisma(assessment.teamSize);
     const stageEnum = this.parseStage(assessment.stage);
     const techSavvinessEnum = this.parseTechSavviness(assessment.techSavviness);
 
@@ -82,6 +95,15 @@ export class DecisionPipeline {
 
     // Filter by team size and stage
     allowedTools = this.filterByFit(allowedTools, teamSizeEnum, stageEnum);
+
+    // Multi-factor scoring: fit 30%, popularity 30%, cost 20%, AI readiness 20%
+    const scoredTools = this.scoreAndRankTools(allowedTools, {
+      teamSize: teamSizeEnum,
+      stage: stageEnum,
+      philosophy: assessment.philosophy,
+      budgetPerUser: assessment.budgetPerUser,
+    });
+    allowedTools = scoredTools.map(st => st.tool);
 
     // 4. Resolve anchor tool
     const { anchorToolId, anchorTool } = this.resolveAnchor(assessment, userTools);
@@ -131,21 +153,21 @@ export class DecisionPipeline {
 
     return tools.filter(tool => {
       for (const req of assessment.highStakesRequirements) {
+        // Use canonical ComplianceRequirement enum values
         switch (req) {
-          case 'SOC 2':
+          case ComplianceRequirement.SOC2:
             if (!tool.soc2) return false;
             break;
-          case 'HIPAA':
+          case ComplianceRequirement.HIPAA:
             if (!tool.hipaa) return false;
             break;
-          case 'GDPR':
-          case 'EU Data Residency':
+          case ComplianceRequirement.EUDataResidency:
             if (!tool.gdpr && !tool.euDataResidency) return false;
             break;
-          case 'Self-Hosted':
+          case ComplianceRequirement.SelfHosted:
             if (!tool.selfHosted) return false;
             break;
-          case 'Air-Gapped':
+          case ComplianceRequirement.AirGapped:
             if (!tool.airGapped) return false;
             break;
         }
@@ -209,6 +231,60 @@ export class DecisionPipeline {
     });
   }
 
+  /**
+   * Multi-factor scoring: ranks tools by fit (30%), popularity (30%),
+   * cost efficiency (20%), and AI readiness (20%).
+   */
+  private scoreAndRankTools(
+    tools: Tool[],
+    params: { teamSize: TeamSize; stage: Stage; philosophy: string; budgetPerUser: number },
+  ): ScoredTool[] {
+    return tools
+      .map(tool => {
+        // Fit score: 50pts teamSize match + 50pts stage match
+        const sizeMatch = tool.bestForTeamSize.length === 0 || tool.bestForTeamSize.includes(params.teamSize) ? 50 : 0;
+        const stageMatch = tool.bestForStage.length === 0 || tool.bestForStage.includes(params.stage) ? 50 : 0;
+        const fitScore = sizeMatch + stageMatch;
+
+        // Popularity score: stored composite 0-100
+        const popularityScore = tool.popularityScore ?? 50;
+
+        // Cost score: free = 90, within budget = 70, over = lower
+        let costScore: number;
+        if (tool.hasFreeForever && (tool.estimatedCostPerUser === null || tool.estimatedCostPerUser === 0)) {
+          costScore = 90;
+        } else if (tool.estimatedCostPerUser === null) {
+          costScore = 60;
+        } else if (tool.estimatedCostPerUser <= params.budgetPerUser) {
+          costScore = 70 + 20 * (1 - tool.estimatedCostPerUser / Math.max(params.budgetPerUser, 1));
+        } else {
+          costScore = Math.max(10, 50 - (tool.estimatedCostPerUser - params.budgetPerUser));
+        }
+
+        // AI readiness: features x philosophy alignment
+        let aiScore = 0;
+        if (tool.hasAiFeatures) {
+          switch (params.philosophy) {
+            case 'Auto-Pilot': aiScore = 100; break;
+            case 'Hybrid': aiScore = 80; break;
+            case 'Co-Pilot': aiScore = 60; break;
+            default: aiScore = 50;
+          }
+        } else {
+          aiScore = params.philosophy === 'Auto-Pilot' ? 10 : 30;
+        }
+
+        const score =
+          fitScore * 0.30 +
+          popularityScore * 0.30 +
+          costScore * 0.20 +
+          aiScore * 0.20;
+
+        return { tool, score, breakdown: { fitScore, popularityScore, costScore, aiScore } };
+      })
+      .sort((a, b) => b.score - a.score);
+  }
+
   // ============================================
   // Anchor Resolution
   // ============================================
@@ -228,7 +304,7 @@ export class DecisionPipeline {
 
       case 'The Dev-Centric Team (GitHub/Cursor)':
         anchorTool = userTools.find(t =>
-          t.name === 'github' || t.name === 'gitlab' || t.name === 'cursor' || t.category === 'DEVELOPMENT'
+          t.name === 'github' || t.name === 'gitlab' || t.name === 'cursor' || t.category === 'DEVELOPMENT' || t.category === 'AI_BUILDERS'
         ) || null;
         break;
 
@@ -275,12 +351,33 @@ export class DecisionPipeline {
       .filter(name => name.length > 0);
   }
 
-  private parseTeamSize(teamSize: string): TeamSize {
+  /**
+   * Map canonical TeamSizeBucket to Prisma TeamSize enum.
+   * The validation layer already normalized the input.
+   */
+  private mapTeamSizeToPrisma(teamSize: TeamSizeBucket): TeamSize {
+    // Direct mapping from canonical enum to Prisma enum
+    switch (teamSize) {
+      case TeamSizeBucket.Solo: return 'SOLO';
+      case TeamSizeBucket.Small: return 'SMALL';
+      case TeamSizeBucket.Medium: return 'MEDIUM';
+      case TeamSizeBucket.Large: return 'LARGE';
+      case TeamSizeBucket.Enterprise: return 'ENTERPRISE';
+      default: return 'SMALL'; // fallback
+    }
+  }
+
+  /**
+   * @deprecated Use mapTeamSizeToPrisma with canonical TeamSizeBucket instead.
+   * Kept for backward compatibility with legacy free-text input.
+   */
+  private parseTeamSizeLegacy(teamSize: string): TeamSize {
     const size = teamSize.toLowerCase();
     if (size === '1' || size === 'solo') return 'SOLO';
     if (size.includes('2') || size.includes('3') || size.includes('4') || size.includes('5')) return 'SMALL';
     if (size.includes('6') || size.includes('10') || size.includes('20')) return 'MEDIUM';
-    if (size.includes('100')) return 'LARGE';
+    if (size.includes('21') || size.includes('50') || size.includes('100')) return 'LARGE';
+    if (size.includes('enterprise') || size.includes('100+')) return 'ENTERPRISE';
     return 'SMALL'; // default
   }
 

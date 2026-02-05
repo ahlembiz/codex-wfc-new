@@ -15,6 +15,7 @@ import {
   checkRateLimit,
   getClientIdentifier,
 } from '../lib/middleware/validation';
+import { TeamSizeBucket } from '../types';
 
 // Response type matching frontend expectations
 interface DiagnosisResponse {
@@ -84,7 +85,7 @@ export default async function handler(
 
     // Calculate costs
     const costCalculator = getCostCalculator();
-    const teamSize = parseTeamSize(assessmentData.teamSize);
+    const teamSize = getTeamSizeCount(assessmentData.teamSize, assessmentData.teamSizeRaw);
     const costAnalyses = new Map<string, ReturnType<typeof costCalculator.calculateCostAnalysis>>();
 
     for (const scenario of builtScenarios) {
@@ -138,12 +139,26 @@ export default async function handler(
   }
 }
 
-function parseTeamSize(teamSize: string): number {
-  // Extract first number from team size string
-  const match = teamSize.match(/\d+/);
-  if (match) {
-    return parseInt(match[0], 10);
+/**
+ * Convert canonical TeamSizeBucket to representative number for cost calculations.
+ * Uses midpoint of each bucket range.
+ */
+function getTeamSizeCount(teamSize: TeamSizeBucket, rawTeamSize?: string): number {
+  // If raw team size is available with specific numbers, use first number
+  if (rawTeamSize) {
+    const match = rawTeamSize.match(/\d+/);
+    if (match) {
+      return parseInt(match[0], 10);
+    }
   }
-  // Default to 5 if parsing fails
-  return 5;
+
+  // Map canonical bucket to representative midpoint value
+  switch (teamSize) {
+    case TeamSizeBucket.Solo: return 1;
+    case TeamSizeBucket.Small: return 3;     // midpoint of 2-5
+    case TeamSizeBucket.Medium: return 12;   // midpoint of 6-20
+    case TeamSizeBucket.Large: return 50;    // midpoint of 21-100
+    case TeamSizeBucket.Enterprise: return 150; // representative for 100+
+    default: return 5; // fallback
+  }
 }

@@ -25,11 +25,11 @@ export interface BuiltScenario {
 
 // Phase to category mapping - CORRECT mapping based on actual tool purposes
 const PHASE_CATEGORY_MAP: Record<string, string[]> = {
-  'Ideation': ['DOCUMENTATION', 'DESIGN', 'AI_ASSISTANTS'], // Notion, Miro, FigJam, Claude
-  'Planning': ['PROJECT_MANAGEMENT', 'DOCUMENTATION'],       // Linear, Jira, Asana, Notion
-  'Execution': ['DEVELOPMENT', 'AI_ASSISTANTS'],             // GitHub, Cursor, Copilot - NOT Design!
-  'Review': ['MEETINGS', 'COMMUNICATION'],                   // Fireflies, Loom, Slack, Zoom
-  'Iterate': ['ANALYTICS', 'PROJECT_MANAGEMENT'],            // PostHog, Amplitude, Linear
+  'Ideation': ['DOCUMENTATION', 'DESIGN', 'AI_ASSISTANTS'],           // Notion, Miro, FigJam, Claude
+  'Planning': ['PROJECT_MANAGEMENT', 'DOCUMENTATION'],                 // Linear, Jira, Asana, Notion
+  'Execution': ['DEVELOPMENT', 'AI_BUILDERS', 'AI_ASSISTANTS'],       // GitHub, Cursor, Copilot, Bolt, Lovable
+  'Review': ['MEETINGS', 'COMMUNICATION'],                             // Fireflies, Loom, Slack, Zoom
+  'Iterate': ['ANALYTICS', 'GROWTH', 'PROJECT_MANAGEMENT'],           // PostHog, Amplitude, Intercom, Linear
 };
 
 // Tools that can cover multiple phases (good for mono-stack)
@@ -38,8 +38,8 @@ const MULTI_PHASE_TOOLS = ['notion', 'clickup', 'linear', 'asana', 'monday'];
 // Category priorities for each scenario type
 const SCENARIO_CATEGORY_PRIORITIES: Record<string, string[]> = {
   'MONO_STACK': ['DOCUMENTATION', 'COMMUNICATION', 'DEVELOPMENT'],
-  'NATIVE_INTEGRATOR': ['PROJECT_MANAGEMENT', 'DOCUMENTATION', 'DEVELOPMENT', 'COMMUNICATION', 'DESIGN'],
-  'AGENTIC_LEAN': ['AI_ASSISTANTS', 'AUTOMATION', 'DEVELOPMENT', 'MEETINGS', 'DOCUMENTATION'],
+  'NATIVE_INTEGRATOR': ['PROJECT_MANAGEMENT', 'DOCUMENTATION', 'DEVELOPMENT', 'COMMUNICATION', 'DESIGN', 'ANALYTICS', 'GROWTH'],
+  'AGENTIC_LEAN': ['AI_ASSISTANTS', 'AI_BUILDERS', 'AUTOMATION', 'DEVELOPMENT', 'MEETINGS', 'DOCUMENTATION'],
 };
 
 /**
@@ -196,8 +196,10 @@ export class ScenarioBuilder {
     if (anchorTool?.hasAiFeatures) {
       tools.push(anchorTool);
     } else if (anchorTool) {
-      // Try to find AI-enabled replacement in same category
-      const aiAlternative = aiTools.find(t => t.category === anchorTool.category);
+      // Try to find AI-enabled replacement in same category, prefer trending tools
+      const aiAlternative = aiTools
+        .filter(t => t.category === anchorTool.category)
+        .sort((a, b) => (b.popularityMomentum ?? 50) - (a.popularityMomentum ?? 50))[0];
       if (aiAlternative) {
         tools.push(aiAlternative);
       }
@@ -206,11 +208,13 @@ export class ScenarioBuilder {
     // Add AI tools by essential function
     const aiPriorities = [
       { category: 'AI_ASSISTANTS', preferred: ['claude', 'chatgpt', 'cursor'] },
+      { category: 'AI_BUILDERS', preferred: ['bolt', 'lovable', 'replit-agent'] },
       { category: 'DEVELOPMENT', preferred: ['cursor', 'copilot', 'codeium'] },
       { category: 'MEETINGS', preferred: ['fireflies', 'otter', 'fathom'] },
       { category: 'DOCUMENTATION', preferred: ['notion', 'coda'] },
       { category: 'PROJECT_MANAGEMENT', preferred: ['linear', 'height', 'clickup'] },
       { category: 'AUTOMATION', preferred: ['zapier', 'make', 'n8n'] },
+      { category: 'GROWTH', preferred: ['intercom', 'hubspot', 'customer-io'] },
     ];
 
     for (const { category, preferred } of aiPriorities) {
@@ -274,14 +278,16 @@ export class ScenarioBuilder {
     // Preferred tools by category (ordered by preference)
     const preferences: Record<string, string[]> = {
       'PROJECT_MANAGEMENT': ['linear', 'asana', 'jira', 'clickup', 'monday'],
-      'DOCUMENTATION': ['notion', 'confluence', 'coda', 'slite'],
-      'DEVELOPMENT': ['github', 'gitlab', 'cursor', 'vscode'],
+      'DOCUMENTATION': ['notion', 'confluence', 'coda', 'slite', 'gitbook'],
+      'DEVELOPMENT': ['github', 'gitlab', 'cursor', 'vscode', 'vercel'],
       'COMMUNICATION': ['slack', 'teams', 'discord'],
-      'MEETINGS': ['fireflies', 'zoom', 'loom', 'otter'],
-      'DESIGN': ['figma', 'framer', 'canva'],
-      'ANALYTICS': ['posthog', 'amplitude', 'mixpanel', 'hotjar'],
-      'AUTOMATION': ['zapier', 'make', 'n8n'],
-      'AI_ASSISTANTS': ['claude', 'chatgpt', 'copilot', 'cursor'],
+      'MEETINGS': ['fireflies', 'zoom', 'loom', 'otter', 'fathom'],
+      'DESIGN': ['figma', 'framer', 'canva', 'miro', 'webflow'],
+      'ANALYTICS': ['posthog', 'amplitude', 'mixpanel', 'hotjar', 'fullstory'],
+      'AUTOMATION': ['zapier', 'make', 'n8n', 'pipedream'],
+      'AI_ASSISTANTS': ['claude', 'chatgpt', 'copilot', 'cursor', 'perplexity'],
+      'AI_BUILDERS': ['bolt', 'lovable', 'replit-agent', 'supabase', 'retool'],
+      'GROWTH': ['intercom', 'hubspot', 'posthog', 'amplitude', 'attio'],
     };
 
     const preferred = preferences[category] || [];
@@ -296,11 +302,15 @@ export class ScenarioBuilder {
       if (tool) return tool;
     }
 
-    // Fallback to any tool in category
-    return allowedTools.find(t =>
-      t.category === category &&
-      !existingTools.some(e => e.id === t.id)
-    ) || null;
+    // Fallback: 60% composite popularity + 40% momentum
+    const candidates = allowedTools
+      .filter(t => t.category === category && !existingTools.some(e => e.id === t.id))
+      .sort((a, b) => {
+        const scoreA = (a.popularityScore ?? 50) * 0.6 + (a.popularityMomentum ?? 50) * 0.4;
+        const scoreB = (b.popularityScore ?? 50) * 0.6 + (b.popularityMomentum ?? 50) * 0.4;
+        return scoreB - scoreA;
+      });
+    return candidates[0] || null;
   }
 
   private async removeRedundantTools(tools: Tool[], anchorId?: string): Promise<Tool[]> {

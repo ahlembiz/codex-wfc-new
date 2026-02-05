@@ -1,5 +1,6 @@
 import { prisma } from '../db';
 import { getCacheService } from './cacheService';
+import { computePopularityScore, type PopularitySubScores, POPULARITY_SUB_SCORE_FIELDS } from '../utils/popularityCalculator';
 import type {
   Tool,
   ToolCategory,
@@ -289,6 +290,44 @@ export class ToolService {
     }
 
     return matrix[b.length][a.length];
+  }
+
+  // ============================================
+  // Popularity Updates
+  // ============================================
+
+  /**
+   * Update tool sub-scores and recompute composite popularity.
+   * Accepts a partial set of sub-scores; merges with existing values.
+   */
+  async updateToolPopularity(toolId: string, subScores: PopularitySubScores): Promise<Tool> {
+    const existing = await prisma.tool.findUniqueOrThrow({ where: { id: toolId } });
+
+    const merged: PopularitySubScores = {
+      popularityAdoption: subScores.popularityAdoption ?? existing.popularityAdoption,
+      popularitySentiment: subScores.popularitySentiment ?? existing.popularitySentiment,
+      popularityMomentum: subScores.popularityMomentum ?? existing.popularityMomentum,
+      popularityEcosystem: subScores.popularityEcosystem ?? existing.popularityEcosystem,
+      popularityReliability: subScores.popularityReliability ?? existing.popularityReliability,
+    };
+
+    const composite = computePopularityScore(merged);
+
+    const updated = await prisma.tool.update({
+      where: { id: toolId },
+      data: {
+        ...merged,
+        popularityScore: composite,
+      },
+    });
+
+    // Invalidate caches
+    await Promise.all([
+      this.cache.invalidateToolById(toolId),
+      this.cache.invalidateToolCache(),
+    ]);
+
+    return updated;
   }
 
   // ============================================

@@ -1,4 +1,10 @@
 import type { VercelRequest } from '@vercel/node';
+import {
+  ComplianceRequirement,
+  TeamSizeBucket,
+  COMPLIANCE_UI_LABELS,
+  TEAM_SIZE_UI_LABELS
+} from '../../types';
 
 // Validation error
 export class ValidationError extends Error {
@@ -13,18 +19,19 @@ export class ValidationError extends Error {
   }
 }
 
-// Assessment data validation
+// Assessment data validation - uses canonical enums
 export interface ValidatedAssessmentData {
   company: string;
   stage: string;
-  teamSize: string;
+  teamSize: TeamSizeBucket;
+  teamSizeRaw?: string;
   currentTools: string;
   philosophy: string;
   techSavviness: string;
   budgetPerUser: number;
   costSensitivity: string;
   sensitivity: string;
-  highStakesRequirements: string[];
+  highStakesRequirements: ComplianceRequirement[];
   agentReadiness: boolean;
   anchorType: string;
   painPoints: string[];
@@ -44,6 +51,109 @@ const VALID_ANCHOR_TYPES = [
   'Other',
   "We're just starting! (no Anchor tool yet)",
 ];
+const VALID_TEAM_SIZE_BUCKETS = Object.values(TeamSizeBucket);
+
+// ============================================
+// Normalization Layer - Maps UI labels to canonical values
+// ============================================
+
+// Map UI compliance labels to canonical enum values
+const COMPLIANCE_UI_TO_CANONICAL: Record<string, ComplianceRequirement> = {
+  "Self-hosted required": ComplianceRequirement.SelfHosted,
+  "SOC 2 compliance": ComplianceRequirement.SOC2,
+  "HIPAA compliance": ComplianceRequirement.HIPAA,
+  "EU data residency": ComplianceRequirement.EUDataResidency,
+  "Air-gapped environment": ComplianceRequirement.AirGapped,
+  // Also accept canonical values directly
+  [ComplianceRequirement.SelfHosted]: ComplianceRequirement.SelfHosted,
+  [ComplianceRequirement.SOC2]: ComplianceRequirement.SOC2,
+  [ComplianceRequirement.HIPAA]: ComplianceRequirement.HIPAA,
+  [ComplianceRequirement.EUDataResidency]: ComplianceRequirement.EUDataResidency,
+  [ComplianceRequirement.AirGapped]: ComplianceRequirement.AirGapped,
+};
+
+// Map UI team size labels to canonical enum values
+const TEAM_SIZE_UI_TO_CANONICAL: Record<string, TeamSizeBucket> = {
+  "Solo (1 person)": TeamSizeBucket.Solo,
+  "Small (2-5)": TeamSizeBucket.Small,
+  "Medium (6-20)": TeamSizeBucket.Medium,
+  "Large (21-100)": TeamSizeBucket.Large,
+  "Enterprise (100+)": TeamSizeBucket.Enterprise,
+  // Accept canonical values directly
+  [TeamSizeBucket.Solo]: TeamSizeBucket.Solo,
+  [TeamSizeBucket.Small]: TeamSizeBucket.Small,
+  [TeamSizeBucket.Medium]: TeamSizeBucket.Medium,
+  [TeamSizeBucket.Large]: TeamSizeBucket.Large,
+  [TeamSizeBucket.Enterprise]: TeamSizeBucket.Enterprise,
+};
+
+/**
+ * Normalize compliance requirement from UI label or any format to canonical enum
+ */
+function normalizeComplianceRequirement(input: string): ComplianceRequirement | null {
+  // Direct mapping
+  if (COMPLIANCE_UI_TO_CANONICAL[input]) {
+    return COMPLIANCE_UI_TO_CANONICAL[input];
+  }
+  // Case-insensitive fallback
+  const lower = input.toLowerCase();
+  if (lower.includes('self-host') || lower.includes('self host')) return ComplianceRequirement.SelfHosted;
+  if (lower.includes('soc 2') || lower.includes('soc2')) return ComplianceRequirement.SOC2;
+  if (lower.includes('hipaa')) return ComplianceRequirement.HIPAA;
+  if (lower.includes('eu') || lower.includes('data residency') || lower.includes('gdpr')) return ComplianceRequirement.EUDataResidency;
+  if (lower.includes('air-gap') || lower.includes('air gap') || lower.includes('airgap')) return ComplianceRequirement.AirGapped;
+  return null;
+}
+
+/**
+ * Normalize team size from UI label, canonical value, or free-text to canonical enum
+ */
+function normalizeTeamSize(input: string, isSoloFounder: boolean): TeamSizeBucket {
+  // Solo founder override
+  if (isSoloFounder) return TeamSizeBucket.Solo;
+
+  // Direct mapping from UI label or canonical value
+  if (TEAM_SIZE_UI_TO_CANONICAL[input]) {
+    return TEAM_SIZE_UI_TO_CANONICAL[input];
+  }
+
+  // Regex fallback for backward compatibility with free-text input
+  const lower = input.toLowerCase();
+
+  // Check for explicit keywords first
+  if (lower === '1' || lower === 'solo' || lower.includes('solo')) return TeamSizeBucket.Solo;
+  if (lower.includes('enterprise') || lower.includes('100+')) return TeamSizeBucket.Enterprise;
+
+  // Extract numbers for range detection
+  const numbers = input.match(/\d+/g)?.map(Number) || [];
+  if (numbers.length === 0) return TeamSizeBucket.Small; // default
+
+  const maxNumber = Math.max(...numbers);
+
+  if (maxNumber === 1) return TeamSizeBucket.Solo;
+  if (maxNumber >= 2 && maxNumber <= 5) return TeamSizeBucket.Small;
+  if (maxNumber >= 6 && maxNumber <= 20) return TeamSizeBucket.Medium;
+  if (maxNumber >= 21 && maxNumber <= 100) return TeamSizeBucket.Large;
+  if (maxNumber > 100) return TeamSizeBucket.Enterprise;
+
+  return TeamSizeBucket.Small; // default fallback
+}
+
+/**
+ * Normalize array of compliance requirements
+ */
+function normalizeComplianceRequirements(requirements: unknown[]): ComplianceRequirement[] {
+  const normalized: ComplianceRequirement[] = [];
+  for (const req of requirements) {
+    if (typeof req === 'string') {
+      const canonical = normalizeComplianceRequirement(req);
+      if (canonical && !normalized.includes(canonical)) {
+        normalized.push(canonical);
+      }
+    }
+  }
+  return normalized;
+}
 
 export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
   if (!body || typeof body !== 'object') {
@@ -62,8 +172,20 @@ export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
     errors.stage = `Stage must be one of: ${VALID_STAGES.join(', ')}`;
   }
 
-  if (!data.teamSize || typeof data.teamSize !== 'string') {
+  // Team size: accept either canonical enum or any string (will be normalized)
+  const rawTeamSize = data.teamSize;
+  const isSoloFounder = data.isSoloFounder === true;
+  let teamSizeRaw: string | undefined;
+
+  if (!rawTeamSize || typeof rawTeamSize !== 'string') {
     errors.teamSize = 'Team size is required';
+  } else {
+    // Check if it's already a canonical value
+    const isCanonical = VALID_TEAM_SIZE_BUCKETS.includes(rawTeamSize as TeamSizeBucket);
+    if (!isCanonical) {
+      // Store raw value for potential backward compatibility needs
+      teamSizeRaw = rawTeamSize;
+    }
   }
 
   if (typeof data.currentTools !== 'string') {
@@ -118,21 +240,26 @@ export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
     throw new ValidationError('Validation failed', errors);
   }
 
+  // Normalize values before returning
+  const normalizedTeamSize = normalizeTeamSize(rawTeamSize as string, isSoloFounder);
+  const normalizedCompliance = normalizeComplianceRequirements(data.highStakesRequirements as unknown[]);
+
   return {
     company: data.company as string,
     stage: data.stage as string,
-    teamSize: data.teamSize as string,
+    teamSize: normalizedTeamSize,
+    teamSizeRaw,
     currentTools: (data.currentTools as string) || '',
     philosophy: data.philosophy as string,
     techSavviness: data.techSavviness as string,
     budgetPerUser: data.budgetPerUser as number,
     costSensitivity: data.costSensitivity as string,
     sensitivity: data.sensitivity as string,
-    highStakesRequirements: data.highStakesRequirements as string[],
+    highStakesRequirements: normalizedCompliance,
     agentReadiness: data.agentReadiness as boolean,
     anchorType: data.anchorType as string,
     painPoints: data.painPoints as string[],
-    isSoloFounder: data.isSoloFounder as boolean,
+    isSoloFounder,
     otherAnchorText: (data.otherAnchorText as string) || '',
   };
 }

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Landing from './components/Landing';
 import IntakeForm from './components/IntakeForm';
 import DiagnosisReport from './components/DiagnosisReport';
 import ScrubsStore from './components/ScrubsStore';
+import AdminDashboard from './components/AdminDashboard';
 import { AssessmentData, DiagnosisResult, ViewState } from './types';
 import { runDiagnosis } from './services/recommendationService';
 
@@ -18,6 +19,17 @@ const App: React.FC = () => {
   const handleScrubs = () => {
     setViewState('SCRUBS');
   };
+
+  const handleAdmin = () => {
+    setViewState('ADMIN');
+  };
+
+  // Check for #admin hash on mount
+  useEffect(() => {
+    if (window.location.hash === '#admin') {
+      setViewState('ADMIN');
+    }
+  }, []);
 
   const handleAssessmentSubmit = async (data: AssessmentData) => {
     setViewState('ANALYZING');
@@ -43,14 +55,17 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (viewState) {
       case 'LANDING':
-        return <Landing onStart={handleStart} onScrubs={handleScrubs} />;
+        return <Landing onStart={handleStart} onScrubs={handleScrubs} onAdmin={handleAdmin} />;
       
       case 'INTAKE':
         return <IntakeForm onSubmit={handleAssessmentSubmit} />;
       
       case 'SCRUBS':
         return <ScrubsStore onBack={handleReset} />;
-      
+
+      case 'ADMIN':
+        return <AdminDashboard onBack={handleReset} />;
+
       case 'ANALYZING':
         return (
           <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4 text-center">
