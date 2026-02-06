@@ -245,3 +245,45 @@ export interface BundleData {
   }>;
   estimatedMonthlyCost: number | null;
 }
+
+// Lightweight tool summary for frontend API responses (distinct from Prisma Tool)
+export interface ToolSummary {
+  id: string;
+  name: string;
+  displayName: string;
+  category: string;
+  primaryUseCases: string[];
+  keyFeatures: string[];
+  complexity: string;
+  typicalPricingTier: string;
+  estimatedCostPerUser: number | null;
+  hasAiFeatures: boolean;
+}
+
+// Backend tool filters (Prisma enum types)
+export interface ToolFilters {
+  category?: string;
+  complexity?: string;
+  pricingTier?: string;
+  maxCostPerUser?: number;
+  teamSize?: string;
+  stage?: string;
+  techSavviness?: string;
+  requireSoc2?: boolean;
+  requireHipaa?: boolean;
+  requireGdpr?: boolean;
+  requireEuDataResidency?: boolean;
+  requireSelfHosted?: boolean;
+  requireAirGapped?: boolean;
+  hasAiFeatures?: boolean;
+}
+
+// Bundle filters
+export interface BundleFilters {
+  scenarioType?: string;
+  teamSize?: string;
+  stage?: string;
+  techSavviness?: string;
+  anchorToolId?: string;
+  useCases?: string[];
+}

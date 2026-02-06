@@ -1,22 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleError, setCorsHeaders, handleOptions, checkMethod } from '../../lib/middleware/errorHandler';
 import { getToolService } from '../../lib/services/toolService';
+import { createApiHandler } from '../../lib/middleware/apiHandler';
 import { validateToolUpdate } from '../../lib/middleware/validation';
 import { validateSubScore, POPULARITY_SUB_SCORE_FIELDS } from '../../lib/utils/popularityCalculator';
 import type { PopularitySubScores } from '../../lib/utils/popularityCalculator';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    return handleOptions(res);
-  }
-
-  if (!checkMethod(req.method, ['GET', 'PUT', 'PATCH', 'DELETE'], res)) {
-    return;
-  }
-
-  try {
+export default createApiHandler({
+  methods: ['GET', 'PUT', 'PATCH', 'DELETE'],
+  async handler(req: VercelRequest, res: VercelResponse) {
     const id = req.query.id as string;
     if (!id) {
       return res.status(400).json({
@@ -118,7 +109,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         message: 'Tool deleted successfully',
       });
     }
-  } catch (error) {
-    handleError(error, res);
-  }
-}
+  },
+});

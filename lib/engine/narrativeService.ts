@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { getAnthropicClient, generateText, AI_MODELS } from '../providers/aiProvider';
 import type { BuiltScenario } from './scenarioBuilder';
 import type { PipelineContext } from './decisionPipeline';
 import type { CostAnalysis } from './costCalculator';
@@ -7,18 +7,6 @@ import type { CostAnalysis } from './costCalculator';
  * Narrative Service - Generate human-readable descriptions using Claude API
  */
 export class NarrativeService {
-  private client: Anthropic | null = null;
-
-  private getClient(): Anthropic {
-    if (!this.client) {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY environment variable is not set');
-      }
-      this.client = new Anthropic({ apiKey });
-    }
-    return this.client;
-  }
 
   /**
    * Generate narrative descriptions for all scenarios
@@ -45,30 +33,11 @@ export class NarrativeService {
     context: PipelineContext,
     costAnalysis?: CostAnalysis
   ): Promise<string> {
-    const client = this.getClient();
-
     const prompt = this.buildNarrativePrompt(scenario, context, costAnalysis);
 
     try {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      });
-
-      // Extract text from response
-      const textBlock = response.content.find(block => block.type === 'text');
-      if (textBlock && textBlock.type === 'text') {
-        return textBlock.text.trim();
-      }
-
-      return this.generateFallbackNarrative(scenario, context);
+      const text = await generateText({ prompt, maxTokens: 500, temperature: 0.7 });
+      return text || this.generateFallbackNarrative(scenario, context);
     } catch (error) {
       console.error('Error generating narrative:', error);
       return this.generateFallbackNarrative(scenario, context);
@@ -131,8 +100,6 @@ Write a confident, direct prescription in clinical style. Start with "Rx:" and e
     scenarios: BuiltScenario[],
     context: PipelineContext
   ): Promise<string> {
-    const client = this.getClient();
-
     const scenarioSummaries = scenarios.map(s => ({
       title: s.title,
       tools: s.tools.map(t => t.displayName),
@@ -147,19 +114,8 @@ ${JSON.stringify(scenarioSummaries, null, 2)}
 Write a brief (2-3 sentence) clinical recommendation on which scenario best fits a ${context.assessment.stage} team with ${context.assessment.philosophy} automation philosophy and ${context.assessment.techSavviness} tech savviness. Be decisive.`;
 
     try {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 200,
-        temperature: 0.7,
-        messages: [{ role: 'user', content: prompt }],
-      });
-
-      const textBlock = response.content.find(block => block.type === 'text');
-      if (textBlock && textBlock.type === 'text') {
-        return textBlock.text.trim();
-      }
-
-      return 'Review each scenario to find the best fit for your team\'s needs and automation philosophy.';
+      const text = await generateText({ prompt, maxTokens: 200, temperature: 0.7 });
+      return text || 'Review each scenario to find the best fit for your team\'s needs and automation philosophy.';
     } catch (error) {
       console.error('Error generating comparison:', error);
       return 'Review each scenario to find the best fit for your team\'s needs and automation philosophy.';

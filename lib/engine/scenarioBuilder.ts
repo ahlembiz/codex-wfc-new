@@ -4,14 +4,9 @@ import { getReplacementService } from '../services/replacementService';
 import { getToolService } from '../services/toolService';
 import type { Tool, ScenarioType, WorkflowPhase, ToolCategory } from '@prisma/client';
 import type { PipelineContext } from './decisionPipeline';
+import type { WorkflowStep } from '../../types';
 
-export interface WorkflowStep {
-  phase: string;
-  tool: string;
-  aiAgentRole: string;
-  humanRole: string;
-  outcome: string;
-}
+export type { WorkflowStep } from '../../types';
 
 export interface BuiltScenario {
   title: string;

@@ -4,12 +4,7 @@ import { getScenarioBuilder } from '../lib/engine/scenarioBuilder';
 import { getCostCalculator } from '../lib/engine/costCalculator';
 import { getNarrativeService } from '../lib/engine/narrativeService';
 import { getCacheService } from '../lib/services/cacheService';
-import {
-  setCorsHeaders,
-  handleOptions,
-  handleError,
-  checkMethod,
-} from '../lib/middleware/errorHandler';
+import { createApiHandler } from '../lib/middleware/apiHandler';
 import {
   validateAssessmentData,
   checkRateLimit,
@@ -37,22 +32,9 @@ interface DiagnosisResponse {
   }>;
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    handleOptions(res);
-    return;
-  }
-
-  if (!checkMethod(req.method, ['POST'], res)) {
-    return;
-  }
-
-  try {
+export default createApiHandler({
+  methods: ['POST'],
+  async handler(req: VercelRequest, res: VercelResponse) {
     // Rate limiting
     const clientId = getClientIdentifier(req);
     if (!checkRateLimit(clientId, 10, 60000)) {
@@ -109,7 +91,6 @@ export default async function handler(
       );
     } catch (narrativeError) {
       console.error('Narrative generation failed, using fallback:', narrativeError);
-      // Scenarios already have fallback descriptions from builder
     }
 
     // Format response to match frontend expectations
@@ -134,10 +115,8 @@ export default async function handler(
     await cacheService.setDiagnosis(assessmentData, response);
 
     res.status(200).json(response);
-  } catch (error) {
-    handleError(error, res);
-  }
-}
+  },
+});
 
 /**
  * Convert canonical TeamSizeBucket to representative number for cost calculations.

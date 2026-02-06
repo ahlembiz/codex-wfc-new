@@ -1,4 +1,4 @@
-import type { AssessmentData, DiagnosisResult, AdminToolData, CreateToolInput, UpdateToolInput, EnrichmentResult } from '../types';
+import type { AssessmentData, DiagnosisResult, AdminToolData, CreateToolInput, UpdateToolInput, EnrichmentResult, ToolSummary, ToolFilters as ToolFiltersType, BundleFilters as BundleFiltersType } from '../types';
 import { runDiagnosis as runGeminiDiagnosis } from './geminiService';
 
 // API base URL - uses environment variable or falls back to relative path
@@ -212,30 +212,9 @@ export interface ToolMatchResult {
   confidence: number;
 }
 
-export interface Tool {
-  id: string;
-  name: string;
-  displayName: string;
-  category: string;
-  primaryUseCases: string[];
-  keyFeatures: string[];
-  complexity: string;
-  typicalPricingTier: string;
-  estimatedCostPerUser: number | null;
-  hasAiFeatures: boolean;
-}
-
-export interface ToolFilters {
-  category?: string;
-  techSavviness?: string;
-  teamSize?: string;
-  stage?: string;
-  maxCostPerUser?: number;
-  hasAiFeatures?: boolean;
-  requireSoc2?: boolean;
-  requireHipaa?: boolean;
-  requireGdpr?: boolean;
-}
+// Re-export ToolSummary as Tool for backward compatibility
+export type Tool = ToolSummary;
+export type ToolFilters = ToolFiltersType;
 
 export interface Bundle {
   id: string;
@@ -362,10 +341,4 @@ export async function enrichTool(
   };
 }
 
-export interface BundleFilters {
-  scenarioType?: string;
-  techSavviness?: string;
-  teamSize?: string;
-  stage?: string;
-  anchorToolId?: string;
-}
+export type BundleFilters = BundleFiltersType;

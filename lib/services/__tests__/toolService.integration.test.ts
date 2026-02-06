@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Tool, IntegrationQuality } from '@prisma/client';
+import type { IntegrationQuality } from '@prisma/client';
+import { createMockTool } from '../../test/factories';
+import { createMockCacheService } from '../../test/mocks';
 
 // Mock prisma before importing the service
 vi.mock('../../db', () => ({
@@ -16,62 +18,11 @@ vi.mock('../../db', () => ({
 
 // Mock cache service
 vi.mock('../cacheService', () => ({
-  getCacheService: () => ({
-    getAllTools: vi.fn().mockResolvedValue(null),
-    setAllTools: vi.fn(),
-    getToolById: vi.fn().mockResolvedValue(null),
-    setToolById: vi.fn(),
-    getToolMatch: vi.fn().mockResolvedValue(null),
-    setToolMatch: vi.fn(),
-    invalidateToolCache: vi.fn(),
-    invalidateToolById: vi.fn(),
-  }),
+  getCacheService: () => createMockCacheService(),
 }));
 
 import { prisma } from '../../db';
 import { ToolService } from '../toolService';
-
-// Helper to create mock tools
-function createMockTool(overrides: Partial<Tool> = {}): Tool {
-  return {
-    id: 'tool-1',
-    name: 'test-tool',
-    displayName: 'Test Tool',
-    category: 'DEVELOPMENT',
-    aliases: [],
-    primaryUseCases: [],
-    keyFeatures: [],
-    complexity: 'MODERATE',
-    typicalPricingTier: 'FREEMIUM',
-    estimatedCostPerUser: null,
-    hasFreeForever: false,
-    bestForTeamSize: [],
-    bestForStage: [],
-    bestForTechSavviness: [],
-    soc2: false,
-    hipaa: false,
-    gdpr: false,
-    euDataResidency: false,
-    selfHosted: false,
-    airGapped: false,
-    hasAiFeatures: false,
-    aiFeatureDescription: null,
-    websiteUrl: null,
-    logoUrl: null,
-    popularityScore: 50,
-    popularityAdoption: 50,
-    popularitySentiment: 50,
-    popularityMomentum: 50,
-    popularityEcosystem: 50,
-    popularityReliability: 50,
-    lastVerified: new Date(),
-    fundingStage: null,
-    foundedYear: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
-}
 
 describe('ToolService Integration Scoring', () => {
   let toolService: ToolService;

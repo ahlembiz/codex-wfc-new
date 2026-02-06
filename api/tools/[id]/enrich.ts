@@ -1,19 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleError, setCorsHeaders, handleOptions, checkMethod } from '../../../lib/middleware/errorHandler';
 import { getEnrichmentService } from '../../../lib/services/enrichmentService';
+import { createApiHandler } from '../../../lib/middleware/apiHandler';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    return handleOptions(res);
-  }
-
-  if (!checkMethod(req.method, ['POST'], res)) {
-    return;
-  }
-
-  try {
+export default createApiHandler({
+  methods: ['POST'],
+  async handler(req: VercelRequest, res: VercelResponse) {
     const id = req.query.id as string;
     if (!id) {
       return res.status(400).json({
@@ -31,7 +22,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       data: tool,
       enrichment,
     });
-  } catch (error) {
-    handleError(error, res);
-  }
-}
+  },
+});

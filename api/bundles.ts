@@ -1,25 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBundleService } from '../lib/services/bundleService';
-import { setCorsHeaders, handleOptions, handleError, checkMethod } from '../lib/middleware/errorHandler';
+import { createApiHandler } from '../lib/middleware/apiHandler';
 import { validateQueryParams } from '../lib/middleware/validation';
 import type { ScenarioType, TechSavviness, TeamSize, Stage } from '@prisma/client';
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    handleOptions(res);
-    return;
-  }
-
-  if (!checkMethod(req.method, ['GET'], res)) {
-    return;
-  }
-
-  try {
+export default createApiHandler({
+  methods: ['GET'],
+  async handler(req: VercelRequest, res: VercelResponse) {
     const bundleService = getBundleService();
 
     // Parse query parameters
@@ -91,7 +78,5 @@ export default async function handler(
       data: formattedBundles,
       count: formattedBundles.length,
     });
-  } catch (error) {
-    handleError(error, res);
-  }
-}
+  },
+});

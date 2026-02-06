@@ -1,6 +1,7 @@
 import { prisma } from '../db';
 import { getCacheService } from './cacheService';
 import type { Tool, ToolBundle, ScenarioType, TeamSize, Stage, TechSavviness } from '@prisma/client';
+import type { BundleFilters } from '../../types';
 
 export interface BundleWithTools extends ToolBundle {
   tools: Array<{
@@ -8,15 +9,6 @@ export interface BundleWithTools extends ToolBundle {
     role: string | null;
   }>;
   anchorTool: Tool | null;
-}
-
-export interface BundleFilters {
-  scenarioType?: ScenarioType;
-  teamSize?: TeamSize;
-  stage?: Stage;
-  techSavviness?: TechSavviness;
-  anchorToolId?: string;
-  useCases?: string[];
 }
 
 /**
@@ -276,5 +268,7 @@ export function getBundleService(): BundleService {
   }
   return bundleServiceInstance;
 }
+
+export type { BundleFilters } from '../../types';
 
 export default getBundleService;

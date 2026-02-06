@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "tsx server.ts",
-    "dev:all": "npm run dev:api & npm run dev",
+    "dev:all": "npx concurrently --kill-others \"npm:dev:api\" \"npm:dev\"",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -35,6 +36,7 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "concurrently": "^9.2.1",
     "prisma": "^5.22.0",
     "tsx": "^4.19.0",
     "typescript": "~5.8.2",

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getToolService } from '../../lib/services/toolService';
-import { setCorsHeaders, handleOptions, handleError, checkMethod } from '../../lib/middleware/errorHandler';
+import { createApiHandler } from '../../lib/middleware/apiHandler';
 import { validateToolMatchRequest } from '../../lib/middleware/validation';
 
 interface MatchResult {
@@ -16,22 +16,9 @@ interface MatchResult {
   matchedOn: 'name' | 'alias' | 'fuzzy' | null;
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    handleOptions(res);
-    return;
-  }
-
-  if (!checkMethod(req.method, ['POST'], res)) {
-    return;
-  }
-
-  try {
+export default createApiHandler({
+  methods: ['POST'],
+  async handler(req: VercelRequest, res: VercelResponse) {
     // Validate request body
     const { names } = validateToolMatchRequest(req.body);
 
@@ -78,7 +65,5 @@ export default async function handler(
         unmatched: names.length - matchedCount,
       },
     });
-  } catch (error) {
-    handleError(error, res);
-  }
-}
+  },
+});

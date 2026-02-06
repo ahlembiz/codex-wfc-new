@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { getAnthropicClient, AI_MODELS } from '../providers/aiProvider';
 import { prisma } from '../db';
 import { getCacheService } from './cacheService';
 import { computePopularityScore, type PopularitySubScores } from '../utils/popularityCalculator';
@@ -9,7 +9,7 @@ import {
   VALID_TOOL_TEAM_SIZES,
   VALID_TOOL_STAGES,
   VALID_TOOL_TECH_SAVVINESS,
-} from '../middleware/validation';
+} from '../constants';
 import type { Tool, ToolCategory, Complexity, PricingTier, TeamSize, Stage, TechSavviness } from '@prisma/client';
 import type { EnrichmentResult } from '../../types';
 
@@ -23,12 +23,7 @@ interface EnrichmentResponse {
  * Analyzes tool information and updates pricing, features, compliance, and popularity data
  */
 export class EnrichmentService {
-  private anthropic: Anthropic;
   private cache = getCacheService();
-
-  constructor() {
-    this.anthropic = new Anthropic();
-  }
 
   /**
    * Enrich a tool's data using Claude AI
@@ -53,8 +48,9 @@ export class EnrichmentService {
     const prompt = this.buildEnrichmentPrompt(existing);
 
     // Call Claude API
-    const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const client = getAnthropicClient();
+    const response = await client.messages.create({
+      model: AI_MODELS.DEFAULT,
       max_tokens: 2000,
       temperature: 0.2,
       messages: [
