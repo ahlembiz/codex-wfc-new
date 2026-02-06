@@ -12,6 +12,7 @@ export interface ScoredTool {
     popularityScore: number;
     costScore: number;
     aiScore: number;
+    integrationScore: number;
   };
 }
 
@@ -96,12 +97,13 @@ export class DecisionPipeline {
     // Filter by team size and stage
     allowedTools = this.filterByFit(allowedTools, teamSizeEnum, stageEnum);
 
-    // Multi-factor scoring: fit 30%, popularity 30%, cost 20%, AI readiness 20%
-    const scoredTools = this.scoreAndRankTools(allowedTools, {
+    // Multi-factor scoring: fit 25%, popularity 25%, cost 20%, AI 15%, integration 15%
+    const scoredTools = await this.scoreAndRankTools(allowedTools, {
       teamSize: teamSizeEnum,
       stage: stageEnum,
       philosophy: assessment.philosophy,
       budgetPerUser: assessment.budgetPerUser,
+      userToolIds,
     });
     allowedTools = scoredTools.map(st => st.tool);
 
@@ -232,57 +234,84 @@ export class DecisionPipeline {
   }
 
   /**
-   * Multi-factor scoring: ranks tools by fit (30%), popularity (30%),
-   * cost efficiency (20%), and AI readiness (20%).
+   * Multi-factor scoring: ranks tools by fit (25%), popularity (25%),
+   * cost efficiency (20%), AI readiness (15%), and integration quality (15%).
    */
-  private scoreAndRankTools(
+  private async scoreAndRankTools(
     tools: Tool[],
-    params: { teamSize: TeamSize; stage: Stage; philosophy: string; budgetPerUser: number },
-  ): ScoredTool[] {
-    return tools
-      .map(tool => {
-        // Fit score: 50pts teamSize match + 50pts stage match
-        const sizeMatch = tool.bestForTeamSize.length === 0 || tool.bestForTeamSize.includes(params.teamSize) ? 50 : 0;
-        const stageMatch = tool.bestForStage.length === 0 || tool.bestForStage.includes(params.stage) ? 50 : 0;
-        const fitScore = sizeMatch + stageMatch;
+    params: {
+      teamSize: TeamSize;
+      stage: Stage;
+      philosophy: string;
+      budgetPerUser: number;
+      userToolIds: string[];
+    },
+  ): Promise<ScoredTool[]> {
+    const scoredPromises = tools.map(async tool => {
+      // Fit score: 50pts teamSize match + 50pts stage match
+      const sizeMatch = tool.bestForTeamSize.length === 0 || tool.bestForTeamSize.includes(params.teamSize) ? 50 : 0;
+      const stageMatch = tool.bestForStage.length === 0 || tool.bestForStage.includes(params.stage) ? 50 : 0;
+      const fitScore = sizeMatch + stageMatch;
 
-        // Popularity score: stored composite 0-100
-        const popularityScore = tool.popularityScore ?? 50;
+      // Popularity score: stored composite 0-100
+      const popularityScore = tool.popularityScore ?? 50;
 
-        // Cost score: free = 90, within budget = 70, over = lower
-        let costScore: number;
-        if (tool.hasFreeForever && (tool.estimatedCostPerUser === null || tool.estimatedCostPerUser === 0)) {
-          costScore = 90;
-        } else if (tool.estimatedCostPerUser === null) {
-          costScore = 60;
-        } else if (tool.estimatedCostPerUser <= params.budgetPerUser) {
-          costScore = 70 + 20 * (1 - tool.estimatedCostPerUser / Math.max(params.budgetPerUser, 1));
-        } else {
-          costScore = Math.max(10, 50 - (tool.estimatedCostPerUser - params.budgetPerUser));
+      // Cost score: free = 90, within budget = 70, over = lower
+      let costScore: number;
+      if (tool.hasFreeForever && (tool.estimatedCostPerUser === null || tool.estimatedCostPerUser === 0)) {
+        costScore = 90;
+      } else if (tool.estimatedCostPerUser === null) {
+        costScore = 60;
+      } else if (tool.estimatedCostPerUser <= params.budgetPerUser) {
+        costScore = 70 + 20 * (1 - tool.estimatedCostPerUser / Math.max(params.budgetPerUser, 1));
+      } else {
+        costScore = Math.max(10, 50 - (tool.estimatedCostPerUser - params.budgetPerUser));
+      }
+
+      // AI readiness: features x philosophy alignment
+      let aiScore = 0;
+      if (tool.hasAiFeatures) {
+        switch (params.philosophy) {
+          case 'Auto-Pilot': aiScore = 100; break;
+          case 'Hybrid': aiScore = 80; break;
+          case 'Co-Pilot': aiScore = 60; break;
+          default: aiScore = 50;
         }
+      } else {
+        aiScore = params.philosophy === 'Auto-Pilot' ? 10 : 30;
+      }
 
-        // AI readiness: features x philosophy alignment
-        let aiScore = 0;
-        if (tool.hasAiFeatures) {
-          switch (params.philosophy) {
-            case 'Auto-Pilot': aiScore = 100; break;
-            case 'Hybrid': aiScore = 80; break;
-            case 'Co-Pilot': aiScore = 60; break;
-            default: aiScore = 50;
-          }
-        } else {
-          aiScore = params.philosophy === 'Auto-Pilot' ? 10 : 30;
+      // Integration score: how well does this tool integrate with user's existing tools?
+      // If user has no tools, neutral score of 50
+      let integrationScore = 50;
+      if (params.userToolIds.length > 0) {
+        integrationScore = await this.toolService.calculateIntegrationScore(
+          tool.id,
+          params.userToolIds
+        );
+        // If no integrations found (score = 0), give partial credit
+        if (integrationScore === 0) {
+          integrationScore = 25; // Neutral-low for unknown integration
         }
+      }
 
-        const score =
-          fitScore * 0.30 +
-          popularityScore * 0.30 +
-          costScore * 0.20 +
-          aiScore * 0.20;
+      // New weights: fit 25%, popularity 25%, cost 20%, AI 15%, integration 15%
+      const score =
+        fitScore * 0.25 +
+        popularityScore * 0.25 +
+        costScore * 0.20 +
+        aiScore * 0.15 +
+        integrationScore * 0.15;
 
-        return { tool, score, breakdown: { fitScore, popularityScore, costScore, aiScore } };
-      })
-      .sort((a, b) => b.score - a.score);
+      return {
+        tool,
+        score,
+        breakdown: { fitScore, popularityScore, costScore, aiScore, integrationScore },
+      };
+    });
+
+    const scored = await Promise.all(scoredPromises);
+    return scored.sort((a, b) => b.score - a.score);
   }
 
   // ============================================

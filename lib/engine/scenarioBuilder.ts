@@ -1,7 +1,8 @@
 import { getBundleService, type BundleWithTools } from '../services/bundleService';
 import { getRedundancyService } from '../services/redundancyService';
 import { getReplacementService } from '../services/replacementService';
-import type { Tool, ScenarioType, WorkflowPhase } from '@prisma/client';
+import { getToolService } from '../services/toolService';
+import type { Tool, ScenarioType, WorkflowPhase, ToolCategory } from '@prisma/client';
 import type { PipelineContext } from './decisionPipeline';
 
 export interface WorkflowStep {
@@ -43,12 +44,13 @@ const SCENARIO_CATEGORY_PRIORITIES: Record<string, string[]> = {
 };
 
 /**
- * Scenario Builder - Builds 3 scenario types with proper tool selection
+ * Scenario Builder - Builds 3 scenario types with integration-aware tool selection
  */
 export class ScenarioBuilder {
   private bundleService = getBundleService();
   private redundancyService = getRedundancyService();
   private replacementService = getReplacementService();
+  private toolService = getToolService();
 
   async buildAllScenarios(context: PipelineContext): Promise<BuiltScenario[]> {
     const [monoStack, nativeIntegrator, agenticLean] = await Promise.all([
@@ -62,7 +64,7 @@ export class ScenarioBuilder {
 
   /**
    * Mono-Stack: MINIMAL tools - anchor + communication + dev (3-4 tools max)
-   * Key principle: One tool should cover multiple phases
+   * Key principle: One tool should cover multiple phases, prefer native integrations
    */
   async buildMonoStackScenario(context: PipelineContext): Promise<BuiltScenario> {
     const { allowedTools, anchorTool, userTools, displacementList } = context;
@@ -81,22 +83,28 @@ export class ScenarioBuilder {
       if (multiPhaseTool) tools.push(multiPhaseTool);
     }
 
-    // Add communication tool (for Review phase)
-    const commTool = allowedTools.find(t =>
-      t.category === 'COMMUNICATION' && t.name === 'slack'
-    ) || allowedTools.find(t => t.category === 'COMMUNICATION');
-
-    if (commTool && !this.hasToolCategory(tools, 'COMMUNICATION')) {
-      tools.push(commTool);
+    // Add communication tool (for Review phase) - prefer tools that integrate with anchor
+    if (!this.hasToolCategory(tools, 'COMMUNICATION')) {
+      const commTool = await this.findBestToolForCategoryAsync(
+        allowedTools,
+        'COMMUNICATION',
+        tools
+      );
+      if (commTool) {
+        tools.push(commTool);
+      }
     }
 
-    // Add development tool (for Execution phase) - MUST be dev tool, not design
-    const devTool = allowedTools.find(t =>
-      t.category === 'DEVELOPMENT' && (t.name === 'github' || t.name === 'cursor')
-    ) || allowedTools.find(t => t.category === 'DEVELOPMENT');
-
-    if (devTool && !this.hasToolCategory(tools, 'DEVELOPMENT')) {
-      tools.push(devTool);
+    // Add development tool (for Execution phase) - prefer tools that integrate with the stack
+    if (!this.hasToolCategory(tools, 'DEVELOPMENT')) {
+      const devTool = await this.findBestToolForCategoryAsync(
+        allowedTools,
+        'DEVELOPMENT',
+        tools
+      );
+      if (devTool) {
+        tools.push(devTool);
+      }
     }
 
     // Remove any redundant tools
@@ -122,7 +130,7 @@ export class ScenarioBuilder {
 
   /**
    * Native Integrator: Best-of-breed tools that integrate well (5-6 tools)
-   * Key principle: One tool per major function, no redundancy
+   * Key principle: One tool per major function, optimized for integration quality
    */
   async buildNativeIntegratorScenario(context: PipelineContext): Promise<BuiltScenario> {
     const { allowedTools, anchorTool, userTools, displacementList, replacementContext } = context;
@@ -134,7 +142,7 @@ export class ScenarioBuilder {
       tools.push(anchorTool);
     }
 
-    // Add one tool per essential category, avoiding redundancy
+    // Add one tool per essential category, using integration-aware selection
     const essentialCategories = [
       'PROJECT_MANAGEMENT',  // Linear, Jira, Asana - for Planning
       'DOCUMENTATION',       // Notion, Confluence - for Ideation/Docs
@@ -143,6 +151,8 @@ export class ScenarioBuilder {
       'MEETINGS',            // Fireflies, Zoom - for Review
     ];
 
+    // Build the stack incrementally, each new tool selection considers
+    // integration with already-selected tools
     for (const category of essentialCategories) {
       // Skip if anchor already covers this category
       if (anchorTool?.category === category) continue;
@@ -150,8 +160,12 @@ export class ScenarioBuilder {
       // Skip if we already have a tool in this category
       if (this.hasToolCategory(tools, category)) continue;
 
-      // Find best tool for this category
-      const categoryTool = this.findBestToolForCategory(allowedTools, category, tools);
+      // Find best tool for this category using integration-aware selection
+      const categoryTool = await this.findBestToolForCategoryAsync(
+        allowedTools,
+        category,
+        tools
+      );
       if (categoryTool) {
         tools.push(categoryTool);
       }
@@ -182,7 +196,7 @@ export class ScenarioBuilder {
 
   /**
    * Agentic Lean: AI-first tools for maximum automation (5-7 tools)
-   * Key principle: Every tool should have AI capabilities
+   * Key principle: Every tool should have AI capabilities, optimized for integration
    */
   async buildAgenticLeanScenario(context: PipelineContext): Promise<BuiltScenario> {
     const { allowedTools, anchorTool, userTools, displacementList } = context;
@@ -196,53 +210,85 @@ export class ScenarioBuilder {
     if (anchorTool?.hasAiFeatures) {
       tools.push(anchorTool);
     } else if (anchorTool) {
-      // Try to find AI-enabled replacement in same category, prefer trending tools
-      const aiAlternative = aiTools
-        .filter(t => t.category === anchorTool.category)
-        .sort((a, b) => (b.popularityMomentum ?? 50) - (a.popularityMomentum ?? 50))[0];
-      if (aiAlternative) {
-        tools.push(aiAlternative);
+      // Try to find AI-enabled replacement in same category
+      // Score by integration with anchor + momentum
+      const aiAlternatives = aiTools.filter(t => t.category === anchorTool.category);
+      if (aiAlternatives.length > 0) {
+        const scored = await Promise.all(
+          aiAlternatives.map(async t => {
+            const integrationScore = await this.toolService.calculateIntegrationScore(
+              t.id,
+              [anchorTool.id]
+            );
+            const momentumScore = t.popularityMomentum ?? 50;
+            return { tool: t, score: integrationScore * 0.4 + momentumScore * 0.6 };
+          })
+        );
+        scored.sort((a, b) => b.score - a.score);
+        if (scored[0]) {
+          tools.push(scored[0].tool);
+        }
       }
     }
 
-    // Add AI tools by essential function
-    const aiPriorities = [
-      { category: 'AI_ASSISTANTS', preferred: ['claude', 'chatgpt', 'cursor'] },
-      { category: 'AI_BUILDERS', preferred: ['bolt', 'lovable', 'replit-agent'] },
-      { category: 'DEVELOPMENT', preferred: ['cursor', 'copilot', 'codeium'] },
-      { category: 'MEETINGS', preferred: ['fireflies', 'otter', 'fathom'] },
-      { category: 'DOCUMENTATION', preferred: ['notion', 'coda'] },
-      { category: 'PROJECT_MANAGEMENT', preferred: ['linear', 'height', 'clickup'] },
-      { category: 'AUTOMATION', preferred: ['zapier', 'make', 'n8n'] },
-      { category: 'GROWTH', preferred: ['intercom', 'hubspot', 'customer-io'] },
+    // Add AI tools by essential function using integration-aware selection
+    const aiCategories: ToolCategory[] = [
+      'AI_ASSISTANTS',
+      'AI_BUILDERS',
+      'DEVELOPMENT',
+      'MEETINGS',
+      'DOCUMENTATION',
+      'PROJECT_MANAGEMENT',
+      'AUTOMATION',
+      'GROWTH',
     ];
 
-    for (const { category, preferred } of aiPriorities) {
+    for (const category of aiCategories) {
       if (this.hasToolCategory(tools, category)) continue;
 
-      // Try preferred tools first
-      let found = false;
-      for (const name of preferred) {
-        const tool = aiTools.find(t => t.name === name && t.category === category);
-        if (tool) {
-          tools.push(tool);
-          found = true;
-          break;
-        }
-      }
+      // Use integration-aware selection, but only among AI-enabled tools
+      const aiCandidates = aiTools.filter(
+        t => t.category === category && !tools.some(e => e.id === t.id)
+      );
 
-      // Fallback to any AI tool in category
-      if (!found) {
-        const categoryTool = aiTools.find(t =>
-          t.category === category && !tools.some(existing => existing.id === t.id)
+      if (aiCandidates.length === 0) continue;
+
+      // If we have tools already, score by integration; otherwise by popularity
+      if (tools.length > 0) {
+        const toolIds = tools.map(t => t.id);
+        const scored = await Promise.all(
+          aiCandidates.map(async t => {
+            const integrationScore = await this.toolService.calculateIntegrationScore(
+              t.id,
+              toolIds
+            );
+            const popularityScore = t.popularityScore ?? 50;
+            return { tool: t, score: integrationScore * 0.5 + popularityScore * 0.5 };
+          })
         );
-        if (categoryTool) tools.push(categoryTool);
+        scored.sort((a, b) => b.score - a.score);
+        if (scored[0]) {
+          tools.push(scored[0].tool);
+        }
+      } else {
+        // No tools yet, fall back to popularity + momentum
+        aiCandidates.sort((a, b) => {
+          const scoreA = (a.popularityScore ?? 50) * 0.6 + (a.popularityMomentum ?? 50) * 0.4;
+          const scoreB = (b.popularityScore ?? 50) * 0.6 + (b.popularityMomentum ?? 50) * 0.4;
+          return scoreB - scoreA;
+        });
+        tools.push(aiCandidates[0]);
       }
     }
 
     // Add communication tool (even if not AI-native, it's essential)
+    // Use integration-aware selection
     if (!this.hasToolCategory(tools, 'COMMUNICATION')) {
-      const commTool = allowedTools.find(t => t.category === 'COMMUNICATION' && t.name === 'slack');
+      const commTool = await this.findBestToolForCategoryAsync(
+        allowedTools,
+        'COMMUNICATION',
+        tools
+      );
       if (commTool) tools.push(commTool);
     }
 
@@ -274,8 +320,63 @@ export class ScenarioBuilder {
     return tools.some(t => t.category === category);
   }
 
+  /**
+   * Find best tool for a category using integration-aware selection.
+   * Combines integration quality (50%) with popularity (50%) for ranking.
+   */
+  private async findBestToolForCategoryAsync(
+    allowedTools: Tool[],
+    category: string,
+    existingTools: Tool[]
+  ): Promise<Tool | null> {
+    const existingToolIds = existingTools.map(t => t.id);
+    const existingSet = new Set(existingToolIds);
+
+    // Filter candidates by category and not already selected
+    const candidates = allowedTools.filter(
+      t => t.category === category && !existingSet.has(t.id)
+    );
+
+    if (candidates.length === 0) return null;
+
+    // If no existing tools to integrate with, fall back to popularity
+    if (existingTools.length === 0) {
+      const sorted = candidates.sort((a, b) => {
+        const scoreA = (a.popularityScore ?? 50) * 0.6 + (a.popularityMomentum ?? 50) * 0.4;
+        const scoreB = (b.popularityScore ?? 50) * 0.6 + (b.popularityMomentum ?? 50) * 0.4;
+        return scoreB - scoreA;
+      });
+      return sorted[0] || null;
+    }
+
+    // Score each candidate by integration + popularity
+    const scored = await Promise.all(
+      candidates.map(async tool => {
+        const integrationScore = await this.toolService.calculateIntegrationScore(
+          tool.id,
+          existingToolIds
+        );
+        const popularityScore = tool.popularityScore ?? 50;
+
+        // 50% integration, 50% popularity
+        const compositeScore = integrationScore * 0.5 + popularityScore * 0.5;
+
+        return { tool, compositeScore, integrationScore };
+      })
+    );
+
+    // Sort by composite score descending
+    scored.sort((a, b) => b.compositeScore - a.compositeScore);
+
+    return scored[0]?.tool ?? null;
+  }
+
+  /**
+   * Synchronous fallback for category selection (used in legacy paths).
+   * Prefers hardcoded preferences, then falls back to popularity.
+   */
   private findBestToolForCategory(allowedTools: Tool[], category: string, existingTools: Tool[]): Tool | null {
-    // Preferred tools by category (ordered by preference)
+    // Preferred tools by category (ordered by preference) - kept as fallback
     const preferences: Record<string, string[]> = {
       'PROJECT_MANAGEMENT': ['linear', 'asana', 'jira', 'clickup', 'monday'],
       'DOCUMENTATION': ['notion', 'confluence', 'coda', 'slite', 'gitbook'],
