@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getToolService } from '../../lib/services/toolService';
 import { setCorsHeaders, handleOptions, handleError, checkMethod } from '../../lib/middleware/errorHandler';
-import { validateQueryParams } from '../../lib/middleware/validation';
+import { validateQueryParams, validateToolCreate } from '../../lib/middleware/validation';
 import type { ToolCategory, TechSavviness, TeamSize, Stage } from '@prisma/client';
 
 export default async function handler(
@@ -15,12 +15,23 @@ export default async function handler(
     return;
   }
 
-  if (!checkMethod(req.method, ['GET'], res)) {
+  if (!checkMethod(req.method, ['GET', 'POST'], res)) {
     return;
   }
 
   try {
     const toolService = getToolService();
+
+    // POST - Create a new tool
+    if (req.method === 'POST') {
+      const validated = validateToolCreate(req.body);
+      const tool = await toolService.createTool(validated);
+      res.status(201).json({
+        success: true,
+        data: tool,
+      });
+      return;
+    }
 
     // Parse query parameters
     const query = validateQueryParams(req.query as Record<string, string | string[] | undefined>, [

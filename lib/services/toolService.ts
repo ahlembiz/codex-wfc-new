@@ -11,6 +11,7 @@ import type {
   TechSavviness,
   Prisma,
 } from '@prisma/client';
+import type { CreateToolInput, UpdateToolInput } from '../../types';
 
 // Types for fuzzy matching
 export interface ToolMatch {
@@ -93,6 +94,165 @@ export class ToolService {
       where: { category },
       orderBy: { displayName: 'asc' },
     });
+  }
+
+  /**
+   * Create a new tool
+   */
+  async createTool(data: CreateToolInput): Promise<Tool> {
+    // Normalize name to lowercase
+    const name = data.name.toLowerCase();
+
+    // Compute popularity score from sub-scores (default to 50 each)
+    const popularityScore = computePopularityScore({
+      popularityAdoption: data.popularityAdoption ?? 50,
+      popularitySentiment: data.popularitySentiment ?? 50,
+      popularityMomentum: data.popularityMomentum ?? 50,
+      popularityEcosystem: data.popularityEcosystem ?? 50,
+      popularityReliability: data.popularityReliability ?? 50,
+    });
+
+    const tool = await prisma.tool.create({
+      data: {
+        name,
+        displayName: data.displayName,
+        category: data.category as ToolCategory,
+        aliases: data.aliases || [],
+        primaryUseCases: data.primaryUseCases || [],
+        keyFeatures: data.keyFeatures || [],
+        complexity: (data.complexity as Complexity) || 'MODERATE',
+        typicalPricingTier: (data.typicalPricingTier as PricingTier) || 'FREEMIUM',
+        estimatedCostPerUser: data.estimatedCostPerUser ?? null,
+        hasFreeForever: data.hasFreeForever ?? false,
+        bestForTeamSize: (data.bestForTeamSize as TeamSize[]) || [],
+        bestForStage: (data.bestForStage as Stage[]) || [],
+        bestForTechSavviness: (data.bestForTechSavviness as TechSavviness[]) || [],
+        soc2: data.soc2 ?? false,
+        hipaa: data.hipaa ?? false,
+        gdpr: data.gdpr ?? false,
+        euDataResidency: data.euDataResidency ?? false,
+        selfHosted: data.selfHosted ?? false,
+        airGapped: data.airGapped ?? false,
+        hasAiFeatures: data.hasAiFeatures ?? false,
+        aiFeatureDescription: data.aiFeatureDescription ?? null,
+        websiteUrl: data.websiteUrl ?? null,
+        logoUrl: data.logoUrl ?? null,
+        fundingStage: data.fundingStage ?? null,
+        foundedYear: data.foundedYear ?? null,
+        popularityScore,
+        popularityAdoption: data.popularityAdoption ?? 50,
+        popularitySentiment: data.popularitySentiment ?? 50,
+        popularityMomentum: data.popularityMomentum ?? 50,
+        popularityEcosystem: data.popularityEcosystem ?? 50,
+        popularityReliability: data.popularityReliability ?? 50,
+        lastVerified: new Date(),
+      },
+    });
+
+    // Invalidate tools cache
+    await this.cache.invalidateToolCache();
+
+    return tool;
+  }
+
+  /**
+   * Update an existing tool
+   */
+  async updateTool(id: string, data: UpdateToolInput): Promise<Tool> {
+    // Build update data with only present fields
+    const updateData: Prisma.ToolUpdateInput = {};
+
+    // Handle simple fields
+    if (data.name !== undefined) updateData.name = data.name.toLowerCase();
+    if (data.displayName !== undefined) updateData.displayName = data.displayName;
+    if (data.category !== undefined) updateData.category = data.category as ToolCategory;
+    if (data.aliases !== undefined) updateData.aliases = data.aliases;
+    if (data.primaryUseCases !== undefined) updateData.primaryUseCases = data.primaryUseCases;
+    if (data.keyFeatures !== undefined) updateData.keyFeatures = data.keyFeatures;
+    if (data.complexity !== undefined) updateData.complexity = data.complexity as Complexity;
+    if (data.typicalPricingTier !== undefined) updateData.typicalPricingTier = data.typicalPricingTier as PricingTier;
+    if (data.estimatedCostPerUser !== undefined) updateData.estimatedCostPerUser = data.estimatedCostPerUser;
+    if (data.hasFreeForever !== undefined) updateData.hasFreeForever = data.hasFreeForever;
+    if (data.bestForTeamSize !== undefined) updateData.bestForTeamSize = data.bestForTeamSize as TeamSize[];
+    if (data.bestForStage !== undefined) updateData.bestForStage = data.bestForStage as Stage[];
+    if (data.bestForTechSavviness !== undefined) updateData.bestForTechSavviness = data.bestForTechSavviness as TechSavviness[];
+    if (data.soc2 !== undefined) updateData.soc2 = data.soc2;
+    if (data.hipaa !== undefined) updateData.hipaa = data.hipaa;
+    if (data.gdpr !== undefined) updateData.gdpr = data.gdpr;
+    if (data.euDataResidency !== undefined) updateData.euDataResidency = data.euDataResidency;
+    if (data.selfHosted !== undefined) updateData.selfHosted = data.selfHosted;
+    if (data.airGapped !== undefined) updateData.airGapped = data.airGapped;
+    if (data.hasAiFeatures !== undefined) updateData.hasAiFeatures = data.hasAiFeatures;
+    if (data.aiFeatureDescription !== undefined) updateData.aiFeatureDescription = data.aiFeatureDescription;
+    if (data.websiteUrl !== undefined) updateData.websiteUrl = data.websiteUrl;
+    if (data.logoUrl !== undefined) updateData.logoUrl = data.logoUrl;
+    if (data.fundingStage !== undefined) updateData.fundingStage = data.fundingStage;
+    if (data.foundedYear !== undefined) updateData.foundedYear = data.foundedYear;
+
+    // Handle popularity sub-scores - if any changed, recompute composite
+    const hasPopularityChange = data.popularityAdoption !== undefined ||
+      data.popularitySentiment !== undefined ||
+      data.popularityMomentum !== undefined ||
+      data.popularityEcosystem !== undefined ||
+      data.popularityReliability !== undefined;
+
+    if (hasPopularityChange) {
+      // Fetch existing tool to merge sub-scores
+      const existing = await prisma.tool.findUniqueOrThrow({ where: { id } });
+
+      const mergedScores: PopularitySubScores = {
+        popularityAdoption: data.popularityAdoption ?? existing.popularityAdoption,
+        popularitySentiment: data.popularitySentiment ?? existing.popularitySentiment,
+        popularityMomentum: data.popularityMomentum ?? existing.popularityMomentum,
+        popularityEcosystem: data.popularityEcosystem ?? existing.popularityEcosystem,
+        popularityReliability: data.popularityReliability ?? existing.popularityReliability,
+      };
+
+      updateData.popularityAdoption = mergedScores.popularityAdoption;
+      updateData.popularitySentiment = mergedScores.popularitySentiment;
+      updateData.popularityMomentum = mergedScores.popularityMomentum;
+      updateData.popularityEcosystem = mergedScores.popularityEcosystem;
+      updateData.popularityReliability = mergedScores.popularityReliability;
+      updateData.popularityScore = computePopularityScore(mergedScores);
+    }
+
+    const tool = await prisma.tool.update({
+      where: { id },
+      data: updateData,
+    });
+
+    // Invalidate caches
+    await Promise.all([
+      this.cache.invalidateToolById(id),
+      this.cache.invalidateToolCache(),
+    ]);
+
+    return tool;
+  }
+
+  /**
+   * Delete a tool by ID
+   * Note: Must clear ToolBundle.anchorToolId references first (no cascade on that FK)
+   */
+  async deleteTool(id: string): Promise<Tool> {
+    // Clear anchor tool references in bundles (no cascade on this FK)
+    await prisma.toolBundle.updateMany({
+      where: { anchorToolId: id },
+      data: { anchorToolId: null },
+    });
+
+    // Delete the tool (other relations cascade automatically)
+    const tool = await prisma.tool.delete({
+      where: { id },
+    });
+
+    // Invalidate caches
+    await Promise.all([
+      this.cache.invalidateToolById(id),
+      this.cache.invalidateToolCache(),
+    ]);
+
+    return tool;
   }
 
   // ============================================

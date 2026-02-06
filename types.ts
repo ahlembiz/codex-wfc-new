@@ -151,6 +151,49 @@ export interface AdminToolData {
   lastVerified?: string;
   fundingStage?: string | null;
   foundedYear?: number | null;
+  logoUrl?: string | null;
+}
+
+// Input interfaces for tool CRUD operations
+export interface CreateToolInput {
+  name: string;           // required, unique lowercase slug
+  displayName: string;    // required
+  category: string;       // required, must match ToolCategory enum
+  aliases?: string[];
+  primaryUseCases?: string[];
+  keyFeatures?: string[];
+  complexity?: string;
+  typicalPricingTier?: string;
+  estimatedCostPerUser?: number | null;
+  hasFreeForever?: boolean;
+  bestForTeamSize?: string[];
+  bestForStage?: string[];
+  bestForTechSavviness?: string[];
+  soc2?: boolean;
+  hipaa?: boolean;
+  gdpr?: boolean;
+  euDataResidency?: boolean;
+  selfHosted?: boolean;
+  airGapped?: boolean;
+  hasAiFeatures?: boolean;
+  aiFeatureDescription?: string | null;
+  websiteUrl?: string | null;
+  logoUrl?: string | null;
+  fundingStage?: string | null;
+  foundedYear?: number | null;
+  popularityAdoption?: number;
+  popularitySentiment?: number;
+  popularityMomentum?: number;
+  popularityEcosystem?: number;
+  popularityReliability?: number;
+}
+
+export interface UpdateToolInput extends Partial<CreateToolInput> {}
+
+export interface EnrichmentResult {
+  fieldsUpdated: string[];
+  summary: string;
+  confidence: number;
 }
 
 // Tool matching metadata types (for API responses)

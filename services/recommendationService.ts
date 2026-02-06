@@ -1,4 +1,4 @@
-import type { AssessmentData, DiagnosisResult, AdminToolData } from '../types';
+import type { AssessmentData, DiagnosisResult, AdminToolData, CreateToolInput, UpdateToolInput, EnrichmentResult } from '../types';
 import { runDiagnosis as runGeminiDiagnosis } from './geminiService';
 
 // API base URL - uses environment variable or falls back to relative path
@@ -281,6 +281,85 @@ export async function updateToolPopularity(
 
   const result = await response.json();
   return result.data as AdminToolData;
+}
+
+/**
+ * Create a new tool
+ */
+export async function createTool(data: CreateToolInput): Promise<AdminToolData> {
+  const response = await fetch(`${API_BASE_URL}/tools`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Create failed' }));
+    throw new Error(err.message || `Create failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data as AdminToolData;
+}
+
+/**
+ * Update a tool via PUT API
+ */
+export async function updateTool(
+  toolId: string,
+  data: UpdateToolInput,
+): Promise<AdminToolData> {
+  const response = await fetch(`${API_BASE_URL}/tools/${toolId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Update failed' }));
+    throw new Error(err.message || `Update failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data as AdminToolData;
+}
+
+/**
+ * Delete a tool
+ */
+export async function deleteTool(toolId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/tools/${toolId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Delete failed' }));
+    throw new Error(err.message || `Delete failed: ${response.status}`);
+  }
+}
+
+/**
+ * AI-powered tool enrichment
+ */
+export async function enrichTool(
+  toolId: string,
+): Promise<{ data: AdminToolData; enrichment: EnrichmentResult }> {
+  const response = await fetch(`${API_BASE_URL}/tools/${toolId}/enrich`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Enrichment failed' }));
+    throw new Error(err.message || `Enrichment failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return {
+    data: result.data as AdminToolData,
+    enrichment: result.enrichment as EnrichmentResult,
+  };
 }
 
 export interface BundleFilters {
