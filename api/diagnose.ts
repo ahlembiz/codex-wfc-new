@@ -25,6 +25,26 @@ interface DiagnosisResponse {
       aiAgentRole: string;
       humanRole: string;
       outcome: string;
+      subSteps?: Array<{
+        bucket: string;
+        tool: string;
+        featureName: string;
+        aiAction: string;
+        humanAction: string;
+        artifact: string;
+        automationLevel: string;
+      }>;
+      automations?: Array<{
+        name: string;
+        triggerTool: string;
+        triggerEvent: string;
+        actionTool: string;
+        actionResult: string;
+        connectorType: string;
+        setupDifficulty: string;
+        timeSaved: number;
+      }>;
+      secondaryTools?: string[];
     }>;
     costProjectionLatex: string;
     currentCostYearly: number[];

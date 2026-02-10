@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { computePopularityScore, type PopularitySubScores } from '../utils/popularityCalculator';
 import { tools, redundancyPairs, replacementRules, bundles, phaseRecommendations } from './seedData';
+import { workflowBuckets, toolCapabilities, automationRecipes } from './seedWorkflowData';
 
 const prisma = new PrismaClient();
 
@@ -90,6 +91,9 @@ async function seed() {
 
   // 1. Clear existing data (order matters for foreign keys)
   console.log('  Clearing existing data...');
+  await prisma.automationRecipe.deleteMany();
+  await prisma.toolPhaseCapability.deleteMany();
+  await prisma.workflowBucket.deleteMany();
   await prisma.bundleTool.deleteMany();
   await prisma.toolBundle.deleteMany();
   await prisma.phaseToolRecommendation.deleteMany();
@@ -282,12 +286,104 @@ async function seed() {
   }
   console.log(`  ✓ Created ${phaseCount} phase recommendations`);
 
+  // 7. Create workflow buckets
+  console.log(`  Creating ${workflowBuckets.length} workflow buckets...`);
+  const bucketMap = new Map<string, string>(); // slug -> id
+  for (const bucket of workflowBuckets) {
+    const created = await prisma.workflowBucket.create({
+      data: {
+        phase: bucket.phase as any,
+        name: bucket.name,
+        slug: bucket.slug,
+        description: bucket.description,
+        displayOrder: bucket.displayOrder,
+        inputs: bucket.inputs,
+        outputs: bucket.outputs,
+      },
+    });
+    bucketMap.set(bucket.slug, created.id);
+  }
+  console.log(`  ✓ Created ${bucketMap.size} workflow buckets`);
+
+  // 8. Create tool phase capabilities
+  console.log(`  Creating ${toolCapabilities.length} tool phase capabilities...`);
+  let capabilityCount = 0;
+  for (const cap of toolCapabilities) {
+    const toolId = toolMap.get(cap.toolName);
+    const bucketId = bucketMap.get(cap.bucketSlug);
+    if (!toolId) {
+      console.warn(`  ⚠ Skipping capability: tool "${cap.toolName}" not found`);
+      continue;
+    }
+    if (!bucketId) {
+      console.warn(`  ⚠ Skipping capability: bucket "${cap.bucketSlug}" not found`);
+      continue;
+    }
+
+    await prisma.toolPhaseCapability.create({
+      data: {
+        toolId,
+        bucketId,
+        featureName: cap.featureName,
+        aiAction: cap.aiAction,
+        humanAction: cap.humanAction,
+        artifact: cap.artifact,
+        automationLevel: cap.automationLevel as any,
+        philosophyFit: cap.philosophyFit,
+        techSavviness: cap.techSavviness as any[],
+        displayOrder: cap.displayOrder,
+      },
+    });
+    capabilityCount++;
+  }
+  console.log(`  ✓ Created ${capabilityCount} tool phase capabilities`);
+
+  // 9. Create automation recipes
+  console.log(`  Creating ${automationRecipes.length} automation recipes...`);
+  let recipeCount = 0;
+  for (const recipe of automationRecipes) {
+    const triggerToolId = toolMap.get(recipe.triggerToolName);
+    const actionToolId = toolMap.get(recipe.actionToolName);
+    if (!triggerToolId) {
+      console.warn(`  ⚠ Skipping recipe: trigger tool "${recipe.triggerToolName}" not found`);
+      continue;
+    }
+    if (!actionToolId) {
+      console.warn(`  ⚠ Skipping recipe: action tool "${recipe.actionToolName}" not found`);
+      continue;
+    }
+
+    await prisma.automationRecipe.create({
+      data: {
+        triggerToolId,
+        triggerEvent: recipe.triggerEvent,
+        triggerDetail: recipe.triggerDetail,
+        actionToolId,
+        actionType: recipe.actionType,
+        actionDetail: recipe.actionDetail,
+        connectorType: recipe.connectorType as any,
+        connectorDetail: recipe.connectorDetail || null,
+        phases: recipe.phases as any[],
+        philosophyFit: recipe.philosophyFit,
+        setupDifficulty: recipe.setupDifficulty as any,
+        techSavviness: recipe.techSavviness as any,
+        timeSavedPerWeek: recipe.timeSavedPerWeek,
+        humanBehaviorChange: recipe.humanBehaviorChange || null,
+      },
+    });
+    recipeCount++;
+  }
+  console.log(`  ✓ Created ${recipeCount} automation recipes`);
+
   console.log('✅ Seed complete!');
   console.log(`  Tools: ${toolMap.size}`);
   console.log(`  Redundancy pairs: ${redundancyCount}`);
   console.log(`  Replacement rules: ${replacementCount}`);
   console.log(`  Bundles: ${bundles.length}`);
   console.log(`  Phase recommendations: ${phaseCount}`);
+  console.log(`  Workflow buckets: ${bucketMap.size}`);
+  console.log(`  Tool capabilities: ${capabilityCount}`);
+  console.log(`  Automation recipes: ${recipeCount}`);
 }
 
 seed()

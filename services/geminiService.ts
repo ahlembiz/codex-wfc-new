@@ -4,6 +4,35 @@ import { AssessmentData, DiagnosisResult, AnchorType } from "../types";
 const GEMINI_API_KEY = process.env.API_KEY || '';
 
 // Define the response schema
+const workflowSubStepSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    bucket: { type: Type.STRING, description: "Sub-phase bucket name" },
+    tool: { type: Type.STRING, description: "Tool used in this sub-step" },
+    featureName: { type: Type.STRING, description: "Specific feature name" },
+    aiAction: { type: Type.STRING, description: "What AI does" },
+    humanAction: { type: Type.STRING, description: "What human does" },
+    artifact: { type: Type.STRING, description: "What gets produced" },
+    automationLevel: { type: Type.STRING, description: "FULL | SUPERVISED | ASSISTED | MANUAL" },
+  },
+  required: ["bucket", "tool", "featureName", "aiAction", "humanAction", "artifact", "automationLevel"]
+};
+
+const workflowAutomationSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING, description: "Automation name" },
+    triggerTool: { type: Type.STRING, description: "Tool that triggers the automation" },
+    triggerEvent: { type: Type.STRING, description: "Event that triggers it" },
+    actionTool: { type: Type.STRING, description: "Tool that receives the action" },
+    actionResult: { type: Type.STRING, description: "What the action produces" },
+    connectorType: { type: Type.STRING, description: "NATIVE | ZAPIER | API | WEBHOOK" },
+    setupDifficulty: { type: Type.STRING, description: "PLUG_AND_PLAY | GUIDED | TECHNICAL | CUSTOM_DEV" },
+    timeSaved: { type: Type.NUMBER, description: "Hours saved per week" },
+  },
+  required: ["name", "triggerTool", "triggerEvent", "actionTool", "actionResult", "connectorType", "setupDifficulty", "timeSaved"]
+};
+
 const workflowStepSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -11,7 +40,10 @@ const workflowStepSchema: Schema = {
     tool: { type: Type.STRING, description: "The primary tool used" },
     aiAgentRole: { type: Type.STRING, description: "What the AI does autonomously" },
     humanRole: { type: Type.STRING, description: "The HITL (Human in the loop) action" },
-    outcome: { type: Type.STRING, description: "The measurable result" }
+    outcome: { type: Type.STRING, description: "The measurable result" },
+    subSteps: { type: Type.ARRAY, items: workflowSubStepSchema, description: "Optional sub-steps within this phase" },
+    automations: { type: Type.ARRAY, items: workflowAutomationSchema, description: "Optional automation recipes" },
+    secondaryTools: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Optional secondary tools used" },
   },
   required: ["phase", "tool", "aiAgentRole", "humanRole", "outcome"]
 };

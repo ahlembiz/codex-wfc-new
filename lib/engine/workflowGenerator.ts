@@ -1,3 +1,8 @@
+/**
+ * @deprecated This module is not used by the main diagnosis pipeline.
+ * Workflow generation is handled inline by scenarioBuilder.ts → workflowIntelligenceService.ts.
+ * Kept for reference only. Will be removed in a future cleanup.
+ */
 import type { Tool, WorkflowPhase } from '@prisma/client';
 import type { PipelineContext } from './decisionPipeline';
 
@@ -69,7 +74,7 @@ export class WorkflowGenerator {
 
   private selectToolForPhase(tools: Tool[], phase: WorkflowPhase): Tool {
     // Map phases to preferred categories
-    const phasePreferences: Record<WorkflowPhase, string[]> = {
+    const phasePreferences: Partial<Record<WorkflowPhase, string[]>> = {
       IDEATION: ['DOCUMENTATION', 'AI_ASSISTANTS', 'PROJECT_MANAGEMENT'],
       PLANNING: ['PROJECT_MANAGEMENT', 'DOCUMENTATION'],
       EXECUTION: ['DEVELOPMENT', 'AI_BUILDERS', 'DESIGN', 'AI_ASSISTANTS'],
@@ -77,7 +82,7 @@ export class WorkflowGenerator {
       ITERATE: ['ANALYTICS', 'GROWTH', 'PROJECT_MANAGEMENT', 'DOCUMENTATION'],
     };
 
-    const preferred = phasePreferences[phase];
+    const preferred = phasePreferences[phase] || [];
 
     for (const category of preferred) {
       const match = tools.find(t => t.category === category);
@@ -122,7 +127,7 @@ export class WorkflowGenerator {
     const isAutoPilot = philosophy === 'Auto-Pilot';
     const isHybrid = philosophy === 'Hybrid';
 
-    const roles: Record<WorkflowPhase, { auto: any; hybrid: any; copilot: any }> = {
+    const roles: Partial<Record<WorkflowPhase, { auto: any; hybrid: any; copilot: any }>> = {
       IDEATION: {
         auto: {
           aiRole: 'Autonomous idea generation from market data, user feedback, and competitor analysis',
@@ -211,6 +216,7 @@ export class WorkflowGenerator {
     };
 
     const phaseRoles = roles[phase];
+    if (!phaseRoles) return { aiRole: '', humanRole: '', outcome: '' };
     if (isAutoPilot) return phaseRoles.auto;
     if (isHybrid) return phaseRoles.hybrid;
     return phaseRoles.copilot;
@@ -241,7 +247,7 @@ export class WorkflowGenerator {
     const isAutoPilot = philosophy === 'Auto-Pilot';
     const isHybrid = philosophy === 'Hybrid';
 
-    const estimates: Record<WorkflowPhase, { auto: string; hybrid: string; copilot: string }> = {
+    const estimates: Partial<Record<WorkflowPhase, { auto: string; hybrid: string; copilot: string }>> = {
       IDEATION: { auto: '1-2 hrs', hybrid: '3-4 hrs', copilot: '5-6 hrs' },
       PLANNING: { auto: '2-3 hrs', hybrid: '4-6 hrs', copilot: '8-10 hrs' },
       EXECUTION: { auto: '10-15 hrs', hybrid: '20-25 hrs', copilot: '30-40 hrs' },
@@ -250,6 +256,7 @@ export class WorkflowGenerator {
     };
 
     const phaseEstimates = estimates[phase];
+    if (!phaseEstimates) return '0 hrs';
     if (isAutoPilot) return phaseEstimates.auto;
     if (isHybrid) return phaseEstimates.hybrid;
     return phaseEstimates.copilot;
@@ -263,7 +270,7 @@ export class WorkflowGenerator {
     const isHybrid = philosophy === 'Hybrid';
 
     // Weekly hours per phase
-    const baseHours: Record<WorkflowPhase, number> = {
+    const baseHours: Partial<Record<WorkflowPhase, number>> = {
       IDEATION: 4,
       PLANNING: 6,
       EXECUTION: 25,
@@ -271,7 +278,7 @@ export class WorkflowGenerator {
       ITERATE: 2,
     };
 
-    const base = baseHours[phase];
+    const base = baseHours[phase] || 0;
 
     if (isAutoPilot) {
       return { humanHours: base * 0.2, aiHours: base * 0.8 };

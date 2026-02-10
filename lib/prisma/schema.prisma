@@ -103,6 +103,35 @@ enum WorkflowPhase {
   EXECUTION
   REVIEW
   ITERATE
+  // V2 phases (reserved for future 7-phase expansion)
+  DISCOVER
+  DECIDE
+  DESIGN
+  BUILD
+  LAUNCH
+}
+
+enum ConnectorType {
+  NATIVE        // Built-in integration (e.g., Linear+GitHub)
+  ZAPIER        // Via Zapier/Make
+  API           // Custom API integration
+  WEBHOOK       // Webhook-based
+  BROWSER_EXT   // Browser extension bridge
+  MANUAL        // Copy-paste / manual handoff
+}
+
+enum AutomationLevel {
+  FULL          // No human input needed
+  SUPERVISED    // Human approves AI output
+  ASSISTED      // AI helps, human drives
+  MANUAL        // Human does it, AI not involved
+}
+
+enum SetupDifficulty {
+  PLUG_AND_PLAY // Click to enable
+  GUIDED        // Follow a wizard, <30 min
+  TECHNICAL     // Needs API keys or config, 1-2 hrs
+  CUSTOM_DEV    // Requires developer, 1+ days
 }
 
 enum ScenarioType {
@@ -179,6 +208,11 @@ model Tool {
   bundleTools           BundleTool[]
   anchorBundles         ToolBundle[]       @relation("AnchorTool")
   phaseRecommendations  PhaseToolRecommendation[]
+
+  // Workflow Intelligence relations
+  phaseCapabilities     ToolPhaseCapability[]
+  recipesAsTrigger      AutomationRecipe[] @relation("RecipeTriggerTool")
+  recipesAsAction       AutomationRecipe[] @relation("RecipeActionTool")
 
   @@index([category])
   @@index([name])
@@ -309,4 +343,77 @@ model PhaseToolRecommendation {
 
   @@index([phase])
   @@index([toolId])
+}
+
+// ============================================
+// WORKFLOW INTELLIGENCE MODELS
+// ============================================
+
+model WorkflowBucket {
+  id            String          @id @default(cuid())
+  phase         WorkflowPhase
+  name          String          // e.g. "Problem Discovery", "Market Research"
+  slug          String          @unique // e.g. "ideation-problem-discovery"
+  description   String
+  displayOrder  Int             @default(0)
+  inputs        String[]        // what this bucket needs
+  outputs       String[]        // what this bucket produces
+
+  capabilities  ToolPhaseCapability[]
+
+  createdAt     DateTime        @default(now())
+
+  @@index([phase])
+}
+
+model ToolPhaseCapability {
+  id              String          @id @default(cuid())
+  toolId          String
+  bucketId        String
+  featureName     String          // e.g. "Linear Asks", "Cursor Composer"
+  aiAction        String          // what AI does with this feature
+  humanAction     String          // what human does
+  artifact        String          // what gets produced
+  automationLevel AutomationLevel @default(ASSISTED)
+  philosophyFit   String[]        // ["Co-Pilot", "Hybrid", "Auto-Pilot"]
+  techSavviness   TechSavviness[] // which savviness levels can use this
+  displayOrder    Int             @default(0)
+
+  tool            Tool            @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  bucket          WorkflowBucket  @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([toolId])
+  @@index([bucketId])
+  @@index([toolId, bucketId])
+}
+
+model AutomationRecipe {
+  id                  String          @id @default(cuid())
+  triggerToolId       String
+  triggerEvent        String          // e.g. "Issue status → Done"
+  triggerDetail       String          // additional context
+  actionToolId        String
+  actionType          String          // e.g. "Create PR comment"
+  actionDetail        String          // additional context
+  connectorType       ConnectorType   @default(NATIVE)
+  connectorDetail     String?         // e.g. "via Zapier webhook"
+  phases              WorkflowPhase[] // which phases this recipe applies to
+  philosophyFit       String[]        // ["Co-Pilot", "Hybrid", "Auto-Pilot"]
+  setupDifficulty     SetupDifficulty @default(GUIDED)
+  techSavviness       TechSavviness   @default(DECENT)
+  timeSavedPerWeek    Float           @default(0) // hours saved per week
+  humanBehaviorChange String?         // what the human needs to change
+
+  triggerTool         Tool            @relation("RecipeTriggerTool", fields: [triggerToolId], references: [id], onDelete: Cascade)
+  actionTool          Tool            @relation("RecipeActionTool", fields: [actionToolId], references: [id], onDelete: Cascade)
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([triggerToolId])
+  @@index([actionToolId])
+  @@index([triggerToolId, actionToolId])
 }

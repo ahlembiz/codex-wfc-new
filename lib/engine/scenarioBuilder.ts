@@ -2,6 +2,7 @@ import { getBundleService, type BundleWithTools } from '../services/bundleServic
 import { getRedundancyService } from '../services/redundancyService';
 import { getReplacementService } from '../services/replacementService';
 import { getToolService } from '../services/toolService';
+import { getWorkflowIntelligenceService } from '../services/workflowIntelligenceService';
 import type { Tool, ScenarioType, WorkflowPhase, ToolCategory } from '@prisma/client';
 import type { PipelineContext } from './decisionPipeline';
 import type { WorkflowStep } from '../../types';
@@ -46,6 +47,7 @@ export class ScenarioBuilder {
   private redundancyService = getRedundancyService();
   private replacementService = getReplacementService();
   private toolService = getToolService();
+  private workflowIntelligenceService = getWorkflowIntelligenceService();
 
   async buildAllScenarios(context: PipelineContext): Promise<BuiltScenario[]> {
     const [monoStack, nativeIntegrator, agenticLean] = await Promise.all([
@@ -110,7 +112,7 @@ export class ScenarioBuilder {
       .filter(ut => !tools.some(t => t.id === ut.id))
       .map(ut => ut.displayName);
 
-    const workflow = this.buildWorkflow(tools, context);
+    const workflow = await this.buildWorkflowAsync(tools, context);
 
     return {
       title: 'The Mono-Stack',
@@ -176,7 +178,7 @@ export class ScenarioBuilder {
       .filter(ut => !tools.some(t => t.id === ut.id))
       .map(ut => ut.displayName);
 
-    const workflow = this.buildWorkflow(tools, context);
+    const workflow = await this.buildWorkflowAsync(tools, context);
 
     return {
       title: 'The Native Integrator',
@@ -294,7 +296,7 @@ export class ScenarioBuilder {
       .filter(ut => !tools.some(t => t.id === ut.id))
       .map(ut => ut.displayName);
 
-    const workflow = this.buildWorkflow(tools, context);
+    const workflow = await this.buildWorkflowAsync(tools, context);
 
     return {
       title: 'The Agentic Lean',
@@ -470,7 +472,27 @@ export class ScenarioBuilder {
     return result;
   }
 
-  private buildWorkflow(tools: Tool[], context: PipelineContext): WorkflowStep[] {
+  private async buildWorkflowAsync(tools: Tool[], context: PipelineContext): Promise<WorkflowStep[]> {
+    const philosophy = context.assessment.philosophy;
+    const techSavviness = context.assessment.techSavviness;
+
+    try {
+      const steps = await this.workflowIntelligenceService.buildIntelligentWorkflow(
+        tools,
+        philosophy,
+        techSavviness,
+        (t, phase) => this.findToolForPhase(t, phase),
+        (phase, isAuto, isHybrid) => this.getRolesForPhase(phase, isAuto, isHybrid),
+      );
+
+      return steps;
+    } catch (error) {
+      console.error('Workflow intelligence service failed, falling back to basic workflow:', error);
+      return this.buildWorkflowFallback(tools, context);
+    }
+  }
+
+  private buildWorkflowFallback(tools: Tool[], context: PipelineContext): WorkflowStep[] {
     const phases = ['Ideation', 'Planning', 'Execution', 'Review', 'Iterate'];
     const workflow: WorkflowStep[] = [];
 

@@ -41,6 +41,11 @@ export const CACHE_KEYS = {
 
   // Bundles list (1h TTL)
   bundlesAll: 'bundles:all',
+
+  // Workflow intelligence (24h TTL)
+  capabilities: (toolId: string, phase: string) => `wf:cap:${toolId}:${phase}`,
+  recipes: (toolIds: string) => `wf:recipe:${toolIds}`,
+  buckets: 'wf:buckets:all',
 } as const;
 
 // TTL values in seconds
@@ -50,11 +55,16 @@ export const CACHE_TTL = {
   diagnosis: 15 * 60,         // 15 minutes
   toolById: 60 * 60,          // 1 hour
   bundlesAll: 60 * 60,        // 1 hour
+  capabilities: 24 * 60 * 60, // 24 hours
+  recipes: 24 * 60 * 60,      // 24 hours
 } as const;
+
+// Cache version prefix — increment when response shape changes to bust stale caches
+const CACHE_VERSION = 'v2';
 
 // Helper to create a hash from assessment data for caching
 export function hashAssessmentData(data: Record<string, unknown>): string {
-  const sorted = JSON.stringify(data, Object.keys(data).sort());
+  const sorted = CACHE_VERSION + JSON.stringify(data, Object.keys(data).sort());
   // Simple hash function for cache keys
   let hash = 0;
   for (let i = 0; i < sorted.length; i++) {

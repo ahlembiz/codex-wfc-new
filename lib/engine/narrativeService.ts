@@ -57,6 +57,27 @@ export class NarrativeService {
       ? `Estimated savings: ${costAnalysis.monthlyPerUserSavings.toFixed(0)}/user/month (${costAnalysis.fiveYearProjection[0]?.savingsPercentage || 0}% reduction)`
       : '';
 
+    // Enrich with workflow intelligence data (sub-steps and automations)
+    const workflowDetails = scenario.workflow
+      .filter((step: any) => step.subSteps?.length > 0 || step.automations?.length > 0)
+      .map((step: any) => {
+        const parts = [`${step.phase}:`];
+        if (step.subSteps?.length > 0) {
+          const features = step.subSteps.map((s: any) => s.featureName).join(', ');
+          parts.push(`  Features: ${features}`);
+        }
+        if (step.automations?.length > 0) {
+          const autos = step.automations.map((a: any) => `${a.triggerTool}→${a.actionTool}`).join(', ');
+          parts.push(`  Automations: ${autos}`);
+        }
+        return parts.join('\n');
+      })
+      .join('\n');
+
+    const capabilitySection = workflowDetails
+      ? `\nKEY CAPABILITIES:\n${workflowDetails}\n`
+      : '';
+
     return `You are a clinical diagnostician for product teams. Write a 2-3 sentence prescription for this workflow scenario.
 
 PATIENT: ${assessment.company}
@@ -71,8 +92,8 @@ SCENARIO: ${scenario.title}
 - Tools to remove: ${displaced}
 - Complexity reduction: ${scenario.complexityReductionScore}%
 ${savingsInfo}
-
-Write a confident, direct prescription in clinical style. Start with "Rx:" and explain why this stack fits their needs. Be specific about the benefits. Do not use markdown formatting.`;
+${capabilitySection}
+Write a confident, direct prescription in clinical style. Start with "Rx:" and explain why this stack fits their needs. Reference specific tool features (like "Linear Asks" or "Cursor Composer") when available. Do not use markdown formatting.`;
   }
 
   private generateFallbackNarrative(

@@ -92,12 +92,36 @@ export interface AssessmentData {
   otherAnchorText: string;
 }
 
+export interface WorkflowSubStep {
+  bucket: string;
+  tool: string;
+  featureName: string;
+  aiAction: string;
+  humanAction: string;
+  artifact: string;
+  automationLevel: string;
+}
+
+export interface WorkflowAutomation {
+  name: string;
+  triggerTool: string;
+  triggerEvent: string;
+  actionTool: string;
+  actionResult: string;
+  connectorType: string;
+  setupDifficulty: string;
+  timeSaved: number;
+}
+
 export interface WorkflowStep {
   phase: string;
   tool: string;
   aiAgentRole: string;
   humanRole: string;
   outcome: string;
+  subSteps?: WorkflowSubStep[];
+  automations?: WorkflowAutomation[];
+  secondaryTools?: string[];
 }
 
 export interface Scenario {

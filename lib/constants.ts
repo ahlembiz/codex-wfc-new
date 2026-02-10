@@ -27,3 +27,28 @@ export const VALID_PRICING_TIERS = ['FREE', 'FREEMIUM', 'STARTER', 'PROFESSIONAL
 export const VALID_TOOL_TEAM_SIZES = ['SOLO', 'SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'];
 export const VALID_TOOL_STAGES = ['BOOTSTRAPPING', 'PRE_SEED', 'EARLY_SEED', 'GROWTH', 'ESTABLISHED'];
 export const VALID_TOOL_TECH_SAVVINESS = ['NEWBIE', 'DECENT', 'NINJA'];
+
+// Workflow V2: current 5 phases used for workflow intelligence
+export const WORKFLOW_PHASES_V2 = ['IDEATION', 'PLANNING', 'EXECUTION', 'REVIEW', 'ITERATE'] as const;
+
+// V2 display names (current phases)
+export const PHASE_DISPLAY_NAMES: Record<string, string> = {
+  IDEATION: 'Ideation',
+  PLANNING: 'Planning',
+  EXECUTION: 'Execution',
+  REVIEW: 'Review',
+  ITERATE: 'Iterate',
+};
+
+// Future 7-phase mapping (old → new, reserved for Phase 7 expansion)
+export const PHASE_V2_MAP: Record<string, string> = {
+  IDEATION: 'DISCOVER',
+  PLANNING: 'DECIDE',
+  EXECUTION: 'BUILD',
+  REVIEW: 'REVIEW',
+  ITERATE: 'ITERATE',
+};
+
+export const VALID_CONNECTOR_TYPES = ['NATIVE', 'ZAPIER', 'API', 'WEBHOOK', 'BROWSER_EXT', 'MANUAL'];
+export const VALID_AUTOMATION_LEVELS = ['FULL', 'SUPERVISED', 'ASSISTED', 'MANUAL'];
+export const VALID_SETUP_DIFFICULTIES = ['PLUG_AND_PLAY', 'GUIDED', 'TECHNICAL', 'CUSTOM_DEV'];
