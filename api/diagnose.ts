@@ -49,6 +49,14 @@ interface DiagnosisResponse {
     costProjectionLatex: string;
     currentCostYearly: number[];
     projectedCostYearly: number[];
+    rationale?: {
+      goal: string;
+      keyPrinciple: string;
+      bestForGeneric: string[];
+      bestForUser: string[];
+      decisionFraming: string;
+      complexityNote: string;
+    };
   }>;
 }
 
@@ -127,6 +135,7 @@ export default createApiHandler({
           costProjectionLatex: costAnalysis?.costProjectionLatex || '',
           currentCostYearly: costAnalysis?.currentYearlyCosts || [0, 0, 0, 0, 0],
           projectedCostYearly: costAnalysis?.projectedYearlyCosts || [0, 0, 0, 0, 0],
+          rationale: scenario.rationale,
         };
       }),
     };

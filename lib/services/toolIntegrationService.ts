@@ -255,6 +255,62 @@ export class ToolIntegrationService {
 
     return scored[0]?.tool ?? null;
   }
+
+  /**
+   * Calculate a synergy bonus for a candidate tool based on how many
+   * AutomationRecipe chains it participates in with the existing stack.
+   *
+   * 3-tool chain: +5, 4-tool chain: +10, 5+ tool chain: +15 (capped)
+   */
+  async calculateStackSynergyBonus(
+    candidateToolId: string,
+    existingStackToolIds: string[]
+  ): Promise<number> {
+    if (existingStackToolIds.length === 0) return 0;
+
+    try {
+      // Find automation recipes where the candidate is trigger or action
+      const recipes = await prisma.automationRecipe.findMany({
+        where: {
+          OR: [
+            { triggerToolId: candidateToolId },
+            { actionToolId: candidateToolId },
+          ],
+        },
+        select: {
+          triggerToolId: true,
+          actionToolId: true,
+        },
+      });
+
+      if (recipes.length === 0) return 0;
+
+      // Count how many stack tools are connected via recipes
+      const stackSet = new Set(existingStackToolIds);
+      const connectedStackTools = new Set<string>();
+
+      for (const recipe of recipes) {
+        if (stackSet.has(recipe.triggerToolId)) {
+          connectedStackTools.add(recipe.triggerToolId);
+        }
+        if (stackSet.has(recipe.actionToolId)) {
+          connectedStackTools.add(recipe.actionToolId);
+        }
+      }
+
+      // Chain length = connected stack tools + 1 (the candidate itself)
+      const chainLength = connectedStackTools.size + 1;
+
+      if (chainLength >= 5) return 15;
+      if (chainLength >= 4) return 10;
+      if (chainLength >= 3) return 5;
+
+      return 0;
+    } catch (error) {
+      console.error('calculateStackSynergyBonus failed:', error);
+      return 0;
+    }
+  }
 }
 
 // Singleton instance

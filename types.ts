@@ -37,6 +37,36 @@ export enum AnchorType {
   None = "We're just starting! (no Anchor tool yet)"
 }
 
+// Engine-actionable pain points (map directly to weight modifiers)
+export enum PainPoint {
+  TooManyTools = "TOO_MANY_TOOLS",
+  ToolsDontTalk = "TOOLS_DONT_TALK",
+  Overpaying = "OVERPAYING",
+  TooMuchManualWork = "TOO_MUCH_MANUAL_WORK",
+  Disorganized = "DISORGANIZED",
+  SlowApprovals = "SLOW_APPROVALS",
+  NoVisibility = "NO_VISIBILITY",
+}
+
+export const PAIN_POINT_UI_LABELS: Record<PainPoint, string> = {
+  [PainPoint.TooManyTools]: "We use too many tools — need to consolidate",
+  [PainPoint.ToolsDontTalk]: "Our tools don't talk to each other",
+  [PainPoint.Overpaying]: "We're overpaying for unused features",
+  [PainPoint.TooMuchManualWork]: "Too much manual / repetitive work",
+  [PainPoint.Disorganized]: "Can't find things — everything is disorganized",
+  [PainPoint.SlowApprovals]: "Slow review / approval process",
+  [PainPoint.NoVisibility]: "No visibility into what's working",
+};
+
+// Weight profile for dynamic scoring
+export interface WeightProfile {
+  fit: number;
+  popularity: number;
+  cost: number;
+  ai: number;
+  integration: number;
+}
+
 // Canonical compliance requirements
 export enum ComplianceRequirement {
   SelfHosted = "SELF_HOSTED",
@@ -85,11 +115,11 @@ export interface AssessmentData {
   costSensitivity: CostSensitivity;
   sensitivity: ProductSensitivity;
   highStakesRequirements: ComplianceRequirement[];
-  agentReadiness: boolean;
   anchorType: AnchorType;
-  painPoints: string[];
-  isSoloFounder: boolean;
+  painPoints: PainPoint[];
   otherAnchorText: string;
+  phasePriorities?: string[];   // Optional: workflow phases the team spends the most time on
+  desiredCapabilities?: string[]; // Optional: tool categories the user wants (filters scenario builder)
 }
 
 export interface WorkflowSubStep {
@@ -124,6 +154,15 @@ export interface WorkflowStep {
   secondaryTools?: string[];
 }
 
+export interface ScenarioRationale {
+  goal: string;
+  keyPrinciple: string;
+  bestForGeneric: string[];
+  bestForUser: string[];
+  decisionFraming: string;
+  complexityNote: string;
+}
+
 export interface Scenario {
   title: string;
   description: string;
@@ -133,6 +172,7 @@ export interface Scenario {
   costProjectionLatex: string;
   currentCostYearly: number[];
   projectedCostYearly: number[];
+  rationale?: ScenarioRationale;
 }
 
 export interface DiagnosisResult {

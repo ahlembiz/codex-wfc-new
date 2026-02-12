@@ -28,25 +28,68 @@ export const VALID_TOOL_TEAM_SIZES = ['SOLO', 'SMALL', 'MEDIUM', 'LARGE', 'ENTER
 export const VALID_TOOL_STAGES = ['BOOTSTRAPPING', 'PRE_SEED', 'EARLY_SEED', 'GROWTH', 'ESTABLISHED'];
 export const VALID_TOOL_TECH_SAVVINESS = ['NEWBIE', 'DECENT', 'NINJA'];
 
-// Workflow V2: current 5 phases used for workflow intelligence
-export const WORKFLOW_PHASES_V2 = ['IDEATION', 'PLANNING', 'EXECUTION', 'REVIEW', 'ITERATE'] as const;
+// Workflow V2: 7 phases used for workflow intelligence
+export const WORKFLOW_PHASES_V2 = ['DISCOVER', 'DECIDE', 'DESIGN', 'BUILD', 'LAUNCH', 'REVIEW', 'ITERATE'] as const;
 
-// V2 display names (current phases)
+// V2 display names
 export const PHASE_DISPLAY_NAMES: Record<string, string> = {
-  IDEATION: 'Ideation',
-  PLANNING: 'Planning',
-  EXECUTION: 'Execution',
+  DISCOVER: 'Discover',
+  DECIDE: 'Decide',
+  DESIGN: 'Design',
+  BUILD: 'Build',
+  LAUNCH: 'Launch',
   REVIEW: 'Review',
   ITERATE: 'Iterate',
 };
 
-// Future 7-phase mapping (old → new, reserved for Phase 7 expansion)
-export const PHASE_V2_MAP: Record<string, string> = {
-  IDEATION: 'DISCOVER',
-  PLANNING: 'DECIDE',
-  EXECUTION: 'BUILD',
-  REVIEW: 'REVIEW',
-  ITERATE: 'ITERATE',
+// Engine-actionable pain point values
+export const VALID_PAIN_POINTS = [
+  'TOO_MANY_TOOLS',
+  'TOOLS_DONT_TALK',
+  'OVERPAYING',
+  'TOO_MUCH_MANUAL_WORK',
+  'DISORGANIZED',
+  'SLOW_APPROVALS',
+  'NO_VISIBILITY',
+] as const;
+
+// Default scoring weights (sum = 1.0)
+export const DEFAULT_WEIGHTS = {
+  fit: 0.25,
+  popularity: 0.25,
+  cost: 0.20,
+  ai: 0.15,
+  integration: 0.15,
+} as const;
+
+// Pain point → weight modifier mapping (additive, applied before normalization)
+export const PAIN_POINT_MODIFIERS: Record<string, Partial<Record<string, number>>> = {
+  TOO_MANY_TOOLS:      { integration: 0.10, fit: 0.05 },
+  TOOLS_DONT_TALK:     { integration: 0.15 },
+  OVERPAYING:          { cost: 0.15 },
+  TOO_MUCH_MANUAL_WORK:{ ai: 0.15 },
+  DISORGANIZED:        { fit: 0.10 },
+  SLOW_APPROVALS:      { integration: 0.05, ai: 0.05 },
+  NO_VISIBILITY:       { popularity: 0.10 },
+};
+
+// Stage → weight modifier mapping (additive, applied before normalization)
+export const STAGE_WEIGHT_MODIFIERS: Record<string, Partial<Record<string, number>>> = {
+  Bootstrapping: { cost: 0.10, ai: -0.05 },
+  Growth:        { integration: 0.05, popularity: 0.05 },
+  Established:   { fit: 0.05, integration: 0.05 },
+};
+
+// Cost sensitivity → weight modifiers (additive, applied before normalization)
+export const COST_SENSITIVITY_MODIFIERS: Record<string, Partial<Record<string, number>>> = {
+  'Price-First': { cost: 0.10 },
+  'Value-First': { cost: -0.05, fit: 0.05 },
+};
+
+// Automation philosophy → weight modifiers (additive, applied before normalization)
+export const PHILOSOPHY_MODIFIERS: Record<string, Partial<Record<string, number>>> = {
+  'Auto-Pilot': { ai: 0.05 },
+  'Co-Pilot':   { ai: -0.10, popularity: 0.10 },
 };
 
 export const VALID_CONNECTOR_TYPES = ['NATIVE', 'ZAPIER', 'API', 'WEBHOOK', 'BROWSER_EXT', 'MANUAL'];

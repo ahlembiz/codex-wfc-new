@@ -78,6 +78,15 @@ export class NarrativeService {
       ? `\nKEY CAPABILITIES:\n${workflowDetails}\n`
       : '';
 
+    const rationaleSection = scenario.rationale
+      ? `\nSCENARIO RATIONALE:
+- Goal: ${scenario.rationale.goal}
+- Key Principle: ${scenario.rationale.keyPrinciple}
+- Decision Framing: ${scenario.rationale.decisionFraming}
+- Why it fits this user: ${scenario.rationale.bestForUser.join('; ') || 'General recommendation'}
+`
+      : '';
+
     return `You are a clinical diagnostician for product teams. Write a 2-3 sentence prescription for this workflow scenario.
 
 PATIENT: ${assessment.company}
@@ -92,7 +101,7 @@ SCENARIO: ${scenario.title}
 - Tools to remove: ${displaced}
 - Complexity reduction: ${scenario.complexityReductionScore}%
 ${savingsInfo}
-${capabilitySection}
+${rationaleSection}${capabilitySection}
 Write a confident, direct prescription in clinical style. Start with "Rx:" and explain why this stack fits their needs. Reference specific tool features (like "Linear Asks" or "Cursor Composer") when available. Do not use markdown formatting.`;
   }
 
