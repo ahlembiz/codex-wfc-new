@@ -1,7 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { computePopularityScore, type PopularitySubScores } from '../utils/popularityCalculator';
 import { tools, redundancyPairs, replacementRules, bundles, phaseRecommendations } from './seedData';
 import { workflowBuckets, toolCapabilities, automationRecipes } from './seedWorkflowData';
+import { seedClusters } from './seedResearchData';
+import { seedDataPoints } from './seedResearchDataPoints';
 
 const prisma = new PrismaClient();
 
@@ -91,6 +93,9 @@ async function seed() {
 
   // 1. Clear existing data (order matters for foreign keys)
   console.log('  Clearing existing data...');
+  await prisma.clusterTool.deleteMany();
+  await prisma.toolCluster.deleteMany();
+  await prisma.researchDataPoint.deleteMany();
   await prisma.automationRecipe.deleteMany();
   await prisma.toolPhaseCapability.deleteMany();
   await prisma.workflowBucket.deleteMany();
@@ -369,11 +374,95 @@ async function seed() {
         techSavviness: recipe.techSavviness as any,
         timeSavedPerWeek: recipe.timeSavedPerWeek,
         humanBehaviorChange: recipe.humanBehaviorChange || null,
+        confidence: recipe.confidence ?? null,
+        sourceCount: recipe.sourceCount ?? null,
+        sourceTypes: recipe.sourceTypes ?? [],
+        researchStatus: recipe.researchStatus ?? null,
+        segmentCoverage: recipe.segmentCoverage as Prisma.InputJsonValue ?? undefined,
       },
     });
     recipeCount++;
   }
   console.log(`  ✓ Created ${recipeCount} automation recipes`);
+
+  // 10. Create tool clusters (research intelligence)
+  console.log(`  Creating ${seedClusters.length} tool clusters...`);
+  let clusterCount = 0;
+  for (const cluster of seedClusters) {
+    // Resolve tool names to IDs
+    const clusterToolIds: Array<{ toolId: string; role: string }> = [];
+    for (const ct of cluster.tools) {
+      const toolId = toolMap.get(ct.toolName);
+      if (!toolId) {
+        console.warn(`  ⚠ Skipping cluster tool: "${ct.toolName}" not found`);
+        continue;
+      }
+      clusterToolIds.push({ toolId, role: ct.role });
+    }
+
+    if (clusterToolIds.length < 2) {
+      console.warn(`  ⚠ Skipping cluster "${cluster.name}": fewer than 2 tools resolved`);
+      continue;
+    }
+
+    await prisma.toolCluster.create({
+      data: {
+        name: cluster.name,
+        description: cluster.description,
+        synergyStrength: cluster.synergyStrength,
+        synergyType: cluster.synergyType,
+        bestForStage: cluster.bestForStage as any[],
+        bestForTeamSize: cluster.bestForTeamSize as any[],
+        bestForTechSavviness: cluster.bestForTechSavviness as any[],
+        confidence: cluster.confidence,
+        sourceCount: cluster.sourceCount,
+        sourceTypes: cluster.sourceTypes,
+        biasFlags: cluster.biasFlags,
+        status: cluster.status,
+        tools: {
+          create: clusterToolIds.map(ct => ({
+            toolId: ct.toolId,
+            role: ct.role,
+          })),
+        },
+      },
+    });
+    clusterCount++;
+  }
+  console.log(`  ✓ Created ${clusterCount} tool clusters`);
+
+  // 11. Create research data points
+  console.log(`  Creating ${seedDataPoints.length} research data points...`);
+  let dataPointCount = 0;
+  for (const dp of seedDataPoints) {
+    await prisma.researchDataPoint.create({
+      data: {
+        sourceType: dp.sourceType,
+        sourceUrl: dp.sourceUrl ?? null,
+        sourceDate: dp.sourceDate ? new Date(dp.sourceDate) : null,
+        extractionDate: new Date(dp.extractionDate),
+        tools: dp.tools,
+        toolCombination: dp.toolCombination,
+        automations: dp.automations ?? undefined,
+        workflow: dp.workflow ?? null,
+        abandonment: dp.abandonment ?? undefined,
+        segmentTeamSize: dp.segmentTeamSize ?? null,
+        segmentStage: dp.segmentStage ?? null,
+        segmentSavviness: dp.segmentSavviness ?? null,
+        segmentRole: dp.segmentRole ?? null,
+        confidence: dp.confidence,
+        isSponsored: dp.isSponsored,
+        sponsoredTools: dp.sponsoredTools ?? [],
+        hasAffiliate: dp.hasAffiliate,
+        affiliateTools: dp.affiliateTools ?? [],
+        crossReferences: dp.crossReferences ?? [],
+        contradictions: dp.contradictions ?? [],
+        status: dp.status,
+      },
+    });
+    dataPointCount++;
+  }
+  console.log(`  ✓ Created ${dataPointCount} research data points`);
 
   console.log('✅ Seed complete!');
   console.log(`  Tools: ${toolMap.size}`);
@@ -384,6 +473,8 @@ async function seed() {
   console.log(`  Workflow buckets: ${bucketMap.size}`);
   console.log(`  Tool capabilities: ${capabilityCount}`);
   console.log(`  Automation recipes: ${recipeCount}`);
+  console.log(`  Tool clusters: ${clusterCount}`);
+  console.log(`  Research data points: ${dataPointCount}`);
 }
 
 seed()
