@@ -17,6 +17,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 interface AdminDashboardProps {
   onBack: () => void;
+  onClusterFuck?: () => void;
 }
 
 const COMPLEXITY_COLORS: Record<string, string> = {
@@ -26,7 +27,7 @@ const COMPLEXITY_COLORS: Record<string, string> = {
   EXPERT: '#A855F7',
 };
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onClusterFuck }) => {
   const [tools, setTools] = useState<AdminToolData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -705,6 +706,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                 Staff Access // Admin Console
               </p>
             </div>
+            {onClusterFuck && (
+              <button
+                onClick={onClusterFuck}
+                style={{
+                  padding: '6px 14px', background: '#111827', border: '1px solid #374151',
+                  color: '#A855F7', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase',
+                  letterSpacing: '0.05em', transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#A855F7'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#374151'; }}
+              >
+                Cluster Fuck
+              </button>
+            )}
           </div>
           <div style={{ position: 'relative', maxWidth: 320, flex: 1 }}>
             <input

@@ -71,9 +71,11 @@ export class PhaseRecommendationService {
    */
   async getPhaseMatrix(techSavviness?: TechSavviness): Promise<PhaseToolMatrix> {
     const allPhases: WorkflowPhase[] = [
-      'IDEATION',
-      'PLANNING',
-      'EXECUTION',
+      'DISCOVER',
+      'DECIDE',
+      'DESIGN',
+      'BUILD',
+      'LAUNCH',
       'REVIEW',
       'ITERATE',
     ];
@@ -118,9 +120,11 @@ export class PhaseRecommendationService {
   ): Promise<Map<WorkflowPhase, PhaseRecommendation | null>> {
     const workflow = new Map<WorkflowPhase, PhaseRecommendation | null>();
     const phases: WorkflowPhase[] = [
-      'IDEATION',
-      'PLANNING',
-      'EXECUTION',
+      'DISCOVER',
+      'DECIDE',
+      'DESIGN',
+      'BUILD',
+      'LAUNCH',
       'REVIEW',
       'ITERATE',
     ];

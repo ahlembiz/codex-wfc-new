@@ -2,7 +2,8 @@ import { getToolService } from '../services/toolService';
 import { getRedundancyService } from '../services/redundancyService';
 import { getReplacementService, type ReplacementContext } from '../services/replacementService';
 import type { Tool, TeamSize, Stage, TechSavviness, PricingTier } from '@prisma/client';
-import { ComplianceRequirement, TeamSizeBucket } from '../../types';
+import { ComplianceRequirement, TeamSizeBucket, type WeightProfile } from '../../types';
+import { DEFAULT_WEIGHTS, PAIN_POINT_MODIFIERS, STAGE_WEIGHT_MODIFIERS } from '../constants';
 
 export interface ScoredTool {
   tool: Tool;
@@ -29,11 +30,11 @@ export interface AssessmentInput {
   costSensitivity: string; // "Price-First" | "Balanced" | "Value-First"
   sensitivity: string; // "Low-Stakes" | "High-Stakes"
   highStakesRequirements: ComplianceRequirement[]; // Canonical enum values
-  agentReadiness: boolean;
   anchorType: string;
   painPoints: string[];
-  isSoloFounder: boolean;
   otherAnchorText: string;
+  phasePriorities?: string[];     // Optional: phases the team spends the most time on
+  desiredCapabilities?: string[]; // Optional: tool categories the user wants
 }
 
 export interface PipelineContext {
@@ -41,6 +42,8 @@ export interface PipelineContext {
   userTools: Tool[];
   userToolIds: string[];
   allowedTools: Tool[];
+  scoredTools: ScoredTool[];
+  weightProfile: WeightProfile;
   anchorToolId: string | null;
   anchorTool: Tool | null;
   displacementList: string[];
@@ -97,13 +100,17 @@ export class DecisionPipeline {
     // Filter by team size and stage
     allowedTools = this.filterByFit(allowedTools, teamSizeEnum, stageEnum);
 
-    // Multi-factor scoring: fit 25%, popularity 25%, cost 20%, AI 15%, integration 15%
+    // Build dynamic weight profile from pain points + stage
+    const weightProfile = DecisionPipeline.buildWeightProfile(assessment.painPoints, assessment.stage);
+
+    // Multi-factor scoring with dynamic weights
     const scoredTools = await this.scoreAndRankTools(allowedTools, {
       teamSize: teamSizeEnum,
       stage: stageEnum,
       philosophy: assessment.philosophy,
       budgetPerUser: assessment.budgetPerUser,
       userToolIds,
+      weights: weightProfile,
     });
     allowedTools = scoredTools.map(st => st.tool);
 
@@ -134,6 +141,8 @@ export class DecisionPipeline {
       userTools,
       userToolIds,
       allowedTools,
+      scoredTools,
+      weightProfile,
       anchorToolId,
       anchorTool,
       displacementList,
@@ -142,6 +151,55 @@ export class DecisionPipeline {
       techSavvinessEnum,
       replacementContext,
     };
+  }
+
+  // ============================================
+  // Weight Profile Builder
+  // ============================================
+
+  /**
+   * Build a dynamic weight profile from pain points and company stage.
+   * Applies additive modifiers then normalizes so weights always sum to 1.0.
+   */
+  static buildWeightProfile(painPoints: string[], stage: string): WeightProfile {
+    // Start with default weights
+    const weights: WeightProfile = { ...DEFAULT_WEIGHTS };
+
+    // Apply pain point modifiers
+    for (const painPoint of painPoints) {
+      const modifiers = PAIN_POINT_MODIFIERS[painPoint];
+      if (modifiers) {
+        for (const [key, value] of Object.entries(modifiers)) {
+          if (key in weights && typeof value === 'number') {
+            weights[key as keyof WeightProfile] += value;
+          }
+        }
+      }
+    }
+
+    // Apply stage modifiers
+    const stageModifiers = STAGE_WEIGHT_MODIFIERS[stage];
+    if (stageModifiers) {
+      for (const [key, value] of Object.entries(stageModifiers)) {
+        if (key in weights && typeof value === 'number') {
+          weights[key as keyof WeightProfile] += value;
+        }
+      }
+    }
+
+    // Normalize: ensure all weights are >= 0, then divide by sum to guarantee sum = 1.0
+    for (const key of Object.keys(weights) as (keyof WeightProfile)[]) {
+      if (weights[key] < 0) weights[key] = 0;
+    }
+
+    const sum = Object.values(weights).reduce((s, w) => s + w, 0);
+    if (sum > 0) {
+      for (const key of Object.keys(weights) as (keyof WeightProfile)[]) {
+        weights[key] = weights[key] / sum;
+      }
+    }
+
+    return weights;
   }
 
   // ============================================
@@ -234,8 +292,9 @@ export class DecisionPipeline {
   }
 
   /**
-   * Multi-factor scoring: ranks tools by fit (25%), popularity (25%),
-   * cost efficiency (20%), AI readiness (15%), and integration quality (15%).
+   * Multi-factor scoring: ranks tools using dynamic weight profile.
+   * Default: fit 25%, popularity 25%, cost 20%, AI 15%, integration 15%.
+   * Weights shift based on pain points and company stage.
    */
   private async scoreAndRankTools(
     tools: Tool[],
@@ -245,8 +304,11 @@ export class DecisionPipeline {
       philosophy: string;
       budgetPerUser: number;
       userToolIds: string[];
+      weights: WeightProfile;
     },
   ): Promise<ScoredTool[]> {
+    const { weights } = params;
+
     const scoredPromises = tools.map(async tool => {
       // Fit score: 50pts teamSize match + 50pts stage match
       const sizeMatch = tool.bestForTeamSize.length === 0 || tool.bestForTeamSize.includes(params.teamSize) ? 50 : 0;
@@ -256,7 +318,7 @@ export class DecisionPipeline {
       // Popularity score: stored composite 0-100
       const popularityScore = tool.popularityScore ?? 50;
 
-      // Cost score: free = 90, within budget = 70, over = lower
+      // Cost score: uses ratio-based penalty for over-budget (fixes absolute $ bug)
       let costScore: number;
       if (tool.hasFreeForever && (tool.estimatedCostPerUser === null || tool.estimatedCostPerUser === 0)) {
         costScore = 90;
@@ -265,7 +327,9 @@ export class DecisionPipeline {
       } else if (tool.estimatedCostPerUser <= params.budgetPerUser) {
         costScore = 70 + 20 * (1 - tool.estimatedCostPerUser / Math.max(params.budgetPerUser, 1));
       } else {
-        costScore = Math.max(10, 50 - (tool.estimatedCostPerUser - params.budgetPerUser));
+        // Ratio-based penalty: how far over budget as a percentage
+        const overageRatio = (tool.estimatedCostPerUser - params.budgetPerUser) / Math.max(params.budgetPerUser, 1);
+        costScore = Math.max(10, 50 - overageRatio * 40);
       }
 
       // AI readiness: features x philosophy alignment
@@ -282,26 +346,24 @@ export class DecisionPipeline {
       }
 
       // Integration score: how well does this tool integrate with user's existing tools?
-      // If user has no tools, neutral score of 50
       let integrationScore = 50;
       if (params.userToolIds.length > 0) {
         integrationScore = await this.toolService.calculateIntegrationScore(
           tool.id,
           params.userToolIds
         );
-        // If no integrations found (score = 0), give partial credit
         if (integrationScore === 0) {
           integrationScore = 25; // Neutral-low for unknown integration
         }
       }
 
-      // New weights: fit 25%, popularity 25%, cost 20%, AI 15%, integration 15%
+      // Apply dynamic weights
       const score =
-        fitScore * 0.25 +
-        popularityScore * 0.25 +
-        costScore * 0.20 +
-        aiScore * 0.15 +
-        integrationScore * 0.15;
+        fitScore * weights.fit +
+        popularityScore * weights.popularity +
+        costScore * weights.cost +
+        aiScore * weights.ai +
+        integrationScore * weights.integration;
 
       return {
         tool,

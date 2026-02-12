@@ -179,7 +179,7 @@ export interface DiagnosisResult {
   scenarios: Scenario[];
 }
 
-export type ViewState = 'LANDING' | 'INTAKE' | 'ANALYZING' | 'DIAGNOSIS' | 'SCRUBS' | 'ERROR' | 'ADMIN';
+export type ViewState = 'LANDING' | 'INTAKE' | 'ANALYZING' | 'DIAGNOSIS' | 'SCRUBS' | 'ERROR' | 'ADMIN' | 'ADMIN_CLUSTER_FUCK';
 
 // Full tool data for Admin Dashboard (all Prisma Tool fields)
 export interface AdminToolData {
@@ -340,6 +340,113 @@ export interface ToolFilters {
   requireSelfHosted?: boolean;
   requireAirGapped?: boolean;
   hasAiFeatures?: boolean;
+}
+
+// ============================================
+// RESEARCH INTELLIGENCE TYPES
+// ============================================
+
+export interface ClusterToolData {
+  id: string;
+  toolId: string;
+  toolName: string;
+  toolDisplayName: string;
+  role: string | null;
+}
+
+export interface ToolClusterData {
+  id: string;
+  name: string;
+  description: string;
+  synergyStrength: number;
+  synergyType: string;
+  bestForStage: string[];
+  bestForTeamSize: string[];
+  bestForTechSavviness: string[];
+  confidence: number;
+  sourceCount: number;
+  sourceTypes: string[];
+  segmentCoverage: Record<string, unknown> | null;
+  adoptionCount: number | null;
+  biasFlags: string[];
+  researchDate: string;
+  lastValidated: string | null;
+  status: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  tools: ClusterToolData[];
+}
+
+export interface ResearchDataPointData {
+  id: string;
+  sourceType: string;
+  sourceUrl: string | null;
+  sourceDate: string | null;
+  extractionDate: string;
+  tools: string[];
+  toolCombination: boolean;
+  automations: Record<string, unknown> | null;
+  workflow: string | null;
+  abandonment: Record<string, unknown> | null;
+  segmentTeamSize: string | null;
+  segmentStage: string | null;
+  segmentSavviness: string | null;
+  segmentRole: string | null;
+  confidence: number;
+  isSponsored: boolean;
+  sponsoredTools: string[];
+  hasAffiliate: boolean;
+  affiliateTools: string[];
+  crossReferences: string[];
+  contradictions: string[];
+  status: string;
+}
+
+export interface BiasAuditCheck {
+  id: string;
+  name: string;
+  description: string;
+  threshold: number;
+  currentValue: number;
+  passing: boolean;
+}
+
+export interface ClusterFuckStats {
+  totalClusters: number;
+  approvedClusters: number;
+  pendingClusters: number;
+  totalRecipesWithResearch: number;
+  totalDataPoints: number;
+  avgClusterConfidence: number;
+  avgRecipeConfidence: number;
+  biasAuditPassCount: number;
+  biasAuditTotalChecks: number;
+  sourceTypeDistribution: Record<string, number>;
+}
+
+export interface ClusterFilters {
+  status?: string;
+  confidenceMin?: number;
+  synergyType?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface RecipeResearchFilters {
+  researchStatus?: string;
+  confidenceMin?: number;
+  connectorType?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ResearchDataFilters {
+  sourceType?: string;
+  status?: string;
+  confidenceMin?: number;
+  page?: number;
+  limit?: number;
 }
 
 // Bundle filters

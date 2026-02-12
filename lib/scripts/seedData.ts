@@ -697,37 +697,52 @@ export const bundles = [
 // ============================================
 
 export const phaseRecommendations = [
-  // IDEATION
-  { phase: 'IDEATION', toolName: 'notion', role: 'Capture and organize ideas, create PRDs, brainstorm features', priority: 1 },
-  { phase: 'IDEATION', toolName: 'claude', role: 'AI brainstorming partner, generate concepts, analyze market trends', priority: 2 },
-  { phase: 'IDEATION', toolName: 'miro', role: 'Visual brainstorming and mind mapping with team', priority: 3 },
-  { phase: 'IDEATION', toolName: 'figjam', role: 'Collaborative whiteboarding for ideation workshops', priority: 4 },
-  { phase: 'IDEATION', toolName: 'whimsical', role: 'Quick wireframes and flowcharts for concepts', priority: 5 },
-  { phase: 'IDEATION', toolName: 'perplexity', role: 'Market research and competitive analysis', priority: 6 },
-  { phase: 'IDEATION', toolName: 'chatgpt', role: 'AI brainstorming and idea generation', priority: 7 },
-  { phase: 'IDEATION', toolName: 'coda', role: 'Interactive docs for requirements gathering', priority: 8 },
+  // DISCOVER
+  { phase: 'DISCOVER', toolName: 'notion', role: 'Capture and organize ideas, create PRDs, brainstorm features', priority: 1 },
+  { phase: 'DISCOVER', toolName: 'claude', role: 'AI brainstorming partner, generate concepts, analyze market trends', priority: 2 },
+  { phase: 'DISCOVER', toolName: 'miro', role: 'Visual brainstorming and mind mapping with team', priority: 3 },
+  { phase: 'DISCOVER', toolName: 'figjam', role: 'Collaborative whiteboarding for ideation workshops', priority: 4 },
+  { phase: 'DISCOVER', toolName: 'whimsical', role: 'Quick wireframes and flowcharts for concepts', priority: 5 },
+  { phase: 'DISCOVER', toolName: 'perplexity', role: 'Market research and competitive analysis', priority: 6 },
+  { phase: 'DISCOVER', toolName: 'chatgpt', role: 'AI brainstorming and idea generation', priority: 7 },
+  { phase: 'DISCOVER', toolName: 'coda', role: 'Interactive docs for requirements gathering', priority: 8 },
 
-  // PLANNING
-  { phase: 'PLANNING', toolName: 'linear', role: 'Create and manage sprint backlogs and issue tracking', priority: 1 },
-  { phase: 'PLANNING', toolName: 'notion', role: 'Write specifications, roadmaps, and project documentation', priority: 2 },
-  { phase: 'PLANNING', toolName: 'jira', role: 'Enterprise project management and sprint planning', priority: 3 },
-  { phase: 'PLANNING', toolName: 'asana', role: 'Work management with timelines and dependencies', priority: 4 },
-  { phase: 'PLANNING', toolName: 'clickup', role: 'All-in-one project planning with docs and whiteboards', priority: 5 },
-  { phase: 'PLANNING', toolName: 'height', role: 'AI-native issue tracking with autonomous organization', priority: 6 },
-  { phase: 'PLANNING', toolName: 'shortcut', role: 'Dev-focused story mapping and sprint planning', priority: 7 },
-  { phase: 'PLANNING', toolName: 'claude', role: 'Draft specifications and technical documents with AI', priority: 8 },
+  // DECIDE
+  { phase: 'DECIDE', toolName: 'linear', role: 'Create and manage sprint backlogs and issue tracking', priority: 1 },
+  { phase: 'DECIDE', toolName: 'notion', role: 'Write specifications, roadmaps, and project documentation', priority: 2 },
+  { phase: 'DECIDE', toolName: 'jira', role: 'Enterprise project management and sprint planning', priority: 3 },
+  { phase: 'DECIDE', toolName: 'asana', role: 'Work management with timelines and dependencies', priority: 4 },
+  { phase: 'DECIDE', toolName: 'clickup', role: 'All-in-one project planning with docs and whiteboards', priority: 5 },
+  { phase: 'DECIDE', toolName: 'height', role: 'AI-native issue tracking with autonomous organization', priority: 6 },
+  { phase: 'DECIDE', toolName: 'shortcut', role: 'Dev-focused story mapping and sprint planning', priority: 7 },
+  { phase: 'DECIDE', toolName: 'claude', role: 'Draft specifications and technical documents with AI', priority: 8 },
 
-  // EXECUTION
-  { phase: 'EXECUTION', toolName: 'cursor', role: 'AI-native code editor for rapid development', priority: 1 },
-  { phase: 'EXECUTION', toolName: 'github', role: 'Code hosting, PR reviews, and CI/CD', priority: 2 },
-  { phase: 'EXECUTION', toolName: 'copilot', role: 'AI code completion and pair programming', priority: 3 },
-  { phase: 'EXECUTION', toolName: 'claude-code', role: 'Terminal-based AI coding agent for complex tasks', priority: 4 },
-  { phase: 'EXECUTION', toolName: 'figma', role: 'UI design and prototyping', priority: 5 },
-  { phase: 'EXECUTION', toolName: 'vercel', role: 'Preview deployments and production hosting', priority: 6 },
-  { phase: 'EXECUTION', toolName: 'v0', role: 'AI-generated UI components and prototypes', priority: 7 },
-  { phase: 'EXECUTION', toolName: 'bolt', role: 'Rapid full-stack app generation for prototypes', priority: 8 },
-  { phase: 'EXECUTION', toolName: 'supabase', role: 'Backend database, auth, and real-time features', priority: 9 },
-  { phase: 'EXECUTION', toolName: 'sentry', role: 'Error tracking and performance monitoring', priority: 10 },
+  // DESIGN
+  { phase: 'DESIGN', toolName: 'figma', role: 'UI design, prototyping, and design system management', priority: 1 },
+  { phase: 'DESIGN', toolName: 'framer', role: 'Interactive prototyping and responsive design', priority: 2 },
+  { phase: 'DESIGN', toolName: 'v0', role: 'AI-generated UI components and design prototypes', priority: 3 },
+  { phase: 'DESIGN', toolName: 'figjam', role: 'Collaborative whiteboarding for design exploration', priority: 4 },
+  { phase: 'DESIGN', toolName: 'whimsical', role: 'Quick wireframes and user flow diagrams', priority: 5 },
+  { phase: 'DESIGN', toolName: 'miro', role: 'Visual collaboration for design workshops', priority: 6 },
+  { phase: 'DESIGN', toolName: 'canva', role: 'Quick visual design and marketing assets', priority: 7 },
+
+  // BUILD
+  { phase: 'BUILD', toolName: 'cursor', role: 'AI-native code editor for rapid development', priority: 1 },
+  { phase: 'BUILD', toolName: 'github', role: 'Code hosting, PR reviews, and CI/CD', priority: 2 },
+  { phase: 'BUILD', toolName: 'copilot', role: 'AI code completion and pair programming', priority: 3 },
+  { phase: 'BUILD', toolName: 'claude-code', role: 'Terminal-based AI coding agent for complex tasks', priority: 4 },
+  { phase: 'BUILD', toolName: 'bolt', role: 'Rapid full-stack app generation for prototypes', priority: 5 },
+  { phase: 'BUILD', toolName: 'supabase', role: 'Backend database, auth, and real-time features', priority: 6 },
+  { phase: 'BUILD', toolName: 'linear', role: 'Sprint tracking and issue management during build', priority: 7 },
+
+  // LAUNCH
+  { phase: 'LAUNCH', toolName: 'vercel', role: 'Production hosting, preview deployments, and edge functions', priority: 1 },
+  { phase: 'LAUNCH', toolName: 'netlify', role: 'Continuous deployment and hosting with branch previews', priority: 2 },
+  { phase: 'LAUNCH', toolName: 'railway', role: 'Full-stack deployment with databases and services', priority: 3 },
+  { phase: 'LAUNCH', toolName: 'sentry', role: 'Error tracking and performance monitoring post-deploy', priority: 4 },
+  { phase: 'LAUNCH', toolName: 'slack', role: 'Launch announcements and deployment notifications', priority: 5 },
+  { phase: 'LAUNCH', toolName: 'zapier', role: 'Automate launch workflows and cross-tool notifications', priority: 6 },
+  { phase: 'LAUNCH', toolName: 'posthog', role: 'Feature flags and release-gated rollouts', priority: 7 },
 
   // REVIEW
   { phase: 'REVIEW', toolName: 'loom', role: 'Async video demos and walkthroughs for stakeholders', priority: 1 },

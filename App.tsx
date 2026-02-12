@@ -4,6 +4,7 @@ import IntakeForm from './components/IntakeForm';
 import DiagnosisReport from './components/DiagnosisReport';
 import ScrubsStore from './components/ScrubsStore';
 import AdminDashboard from './components/AdminDashboard';
+import ClusterFuckDashboard from './components/admin/cluster-fuck/ClusterFuckDashboard';
 import { AssessmentData, DiagnosisResult, ViewState } from './types';
 import { runDiagnosis } from './services/recommendationService';
 
@@ -24,9 +25,16 @@ const App: React.FC = () => {
     setViewState('ADMIN');
   };
 
+  const handleClusterFuck = () => {
+    setViewState('ADMIN_CLUSTER_FUCK');
+  };
+
   // Check for #admin hash on mount
   useEffect(() => {
-    if (window.location.hash === '#admin') {
+    const hash = window.location.hash;
+    if (hash === '#admin/cluster-fuck') {
+      setViewState('ADMIN_CLUSTER_FUCK');
+    } else if (hash === '#admin') {
       setViewState('ADMIN');
     }
   }, []);
@@ -64,7 +72,10 @@ const App: React.FC = () => {
         return <ScrubsStore onBack={handleReset} />;
 
       case 'ADMIN':
-        return <AdminDashboard onBack={handleReset} />;
+        return <AdminDashboard onBack={handleReset} onClusterFuck={handleClusterFuck} />;
+
+      case 'ADMIN_CLUSTER_FUCK':
+        return <ClusterFuckDashboard onBack={() => setViewState('ADMIN')} />;
 
       case 'ANALYZING':
         return (

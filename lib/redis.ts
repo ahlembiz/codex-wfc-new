@@ -60,7 +60,7 @@ export const CACHE_TTL = {
 } as const;
 
 // Cache version prefix — increment when response shape changes to bust stale caches
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 // Helper to create a hash from assessment data for caching
 export function hashAssessmentData(data: Record<string, unknown>): string {

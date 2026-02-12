@@ -9,8 +9,10 @@ import {
   CostSensitivity,
   TeamSizeBucket,
   ComplianceRequirement,
+  PainPoint,
   TEAM_SIZE_UI_LABELS,
-  COMPLIANCE_UI_LABELS
+  COMPLIANCE_UI_LABELS,
+  PAIN_POINT_UI_LABELS,
 } from '../types';
 
 interface IntakeFormProps {
@@ -30,11 +32,11 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
     costSensitivity: CostSensitivity.PriceFirst,
     sensitivity: ProductSensitivity.LowStakes,
     highStakesRequirements: [],
-    agentReadiness: false,
     anchorType: AnchorType.DocCentric,
     painPoints: [],
-    isSoloFounder: false,
-    otherAnchorText: ''
+    otherAnchorText: '',
+    phasePriorities: [],
+    desiredCapabilities: [],
   });
 
   const [automationValue, setAutomationValue] = useState<number>(1);
@@ -44,13 +46,25 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePainPointToggle = (point: string) => {
+  const handlePainPointToggle = (point: PainPoint) => {
     setFormData(prev => {
       const exists = prev.painPoints.includes(point);
       if (exists) {
         return { ...prev, painPoints: prev.painPoints.filter(p => p !== point) };
       } else {
         return { ...prev, painPoints: [...prev.painPoints, point] };
+      }
+    });
+  };
+
+  const handleArrayToggle = (field: 'phasePriorities' | 'desiredCapabilities', value: string) => {
+    setFormData(prev => {
+      const arr = prev[field] || [];
+      const exists = arr.includes(value);
+      if (exists) {
+        return { ...prev, [field]: arr.filter(v => v !== value) };
+      } else {
+        return { ...prev, [field]: [...arr, value] };
       }
     });
   };
@@ -89,12 +103,28 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
     onSubmit(formData);
   };
 
-  const painPointOptions = [
-    "We use too many tools",
-    "I don't have time to deep dive",
-    "Context switching kills our flow",
-    "We pay too much and don't optimize enough",
-    "I have a small budget"
+  const painPointOptions = Object.values(PainPoint);
+
+  const phaseOptions = [
+    { value: 'DISCOVER', label: 'Discover' },
+    { value: 'DECIDE', label: 'Decide' },
+    { value: 'DESIGN', label: 'Design' },
+    { value: 'BUILD', label: 'Build' },
+    { value: 'LAUNCH', label: 'Launch' },
+    { value: 'REVIEW', label: 'Review' },
+    { value: 'ITERATE', label: 'Iterate' },
+  ];
+
+  const capabilityOptions = [
+    { value: 'PROJECT_MANAGEMENT', label: 'Project Management' },
+    { value: 'DOCUMENTATION', label: 'Documentation' },
+    { value: 'DEVELOPMENT', label: 'Development' },
+    { value: 'DESIGN', label: 'Design' },
+    { value: 'COMMUNICATION', label: 'Communication' },
+    { value: 'ANALYTICS', label: 'Analytics' },
+    { value: 'AUTOMATION', label: 'Automation' },
+    { value: 'AI_ASSISTANTS', label: 'AI Assistants' },
+    { value: 'MEETINGS', label: 'Meetings' },
   ];
 
   // Use canonical enum values - UI labels come from COMPLIANCE_UI_LABELS
@@ -181,14 +211,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
                         required
                         className="w-full bg-white border border-gray-300 p-4 text-sm focus:border-[#0B0B0B] focus:ring-0 outline-none appearance-none rounded-none"
                         value={formData.teamSize}
-                        onChange={(e) => {
-                          const value = e.target.value as TeamSizeBucket;
-                          handleChange('teamSize', value);
-                          // Auto-check solo founder if Solo is selected
-                          if (value === TeamSizeBucket.Solo) {
-                            handleChange('isSoloFounder', true);
-                          }
-                        }}
+                        onChange={(e) => handleChange('teamSize', e.target.value as TeamSizeBucket)}
                       >
                         {Object.values(TeamSizeBucket).map(size => (
                           <option key={size} value={size}>{TEAM_SIZE_UI_LABELS[size]}</option>
@@ -198,21 +221,6 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                       </div>
                     </div>
-                    <label className="flex items-center space-x-3 cursor-pointer pt-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.isSoloFounder}
-                          onChange={(e) => {
-                            handleChange('isSoloFounder', e.target.checked);
-                            // Auto-select Solo team size if checked
-                            if (e.target.checked) {
-                              handleChange('teamSize', TeamSizeBucket.Solo);
-                            }
-                          }}
-                          className="h-4 w-4 text-[#0B0B0B] border-gray-300 focus:ring-0 rounded-none accent-[#0B0B0B]"
-                        />
-                        <span className="text-xs font-bold text-gray-600">I'm a Solo-founder <span className="font-normal italic opacity-75">(tiny violin plays)</span></span>
-                    </label>
                   </div>
                   <div className="space-y-2">
                     <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">Current Tools</label>
@@ -328,8 +336,54 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
                           checked={formData.painPoints.includes(point)}
                           onChange={() => handlePainPointToggle(point)}
                         />
-                        <span className={`text-sm ${formData.painPoints.includes(point) ? 'text-[#E53935] font-medium' : 'text-gray-600'}`}>{point}</span>
+                        <span className={`text-sm ${formData.painPoints.includes(point) ? 'text-[#E53935] font-medium' : 'text-gray-600'}`}>{PAIN_POINT_UI_LABELS[point]}</span>
                       </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">
+                    Where does your team spend the most time?
+                    <span className="font-normal normal-case tracking-normal text-gray-400 ml-2">(optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {phaseOptions.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleArrayToggle('phasePriorities', value)}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${
+                          (formData.phasePriorities || []).includes(value)
+                            ? 'bg-[#0B0B0B] text-white border-[#0B0B0B]'
+                            : 'bg-white text-gray-500 border-gray-300 hover:border-[#0B0B0B]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">
+                    Which capabilities do you need?
+                    <span className="font-normal normal-case tracking-normal text-gray-400 ml-2">(optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {capabilityOptions.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleArrayToggle('desiredCapabilities', value)}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${
+                          (formData.desiredCapabilities || []).includes(value)
+                            ? 'bg-[#0B0B0B] text-white border-[#0B0B0B]'
+                            : 'bg-white text-gray-500 border-gray-300 hover:border-[#0B0B0B]'
+                        }`}
+                      >
+                        {label}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -401,34 +455,20 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit }) => {
               </div>
               <div className="col-span-12 md:col-span-9 space-y-8">
                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">Risk Sensitivity</label>
-                          <div className="flex border border-gray-300">
-                              {Object.values(ProductSensitivity).map((val) => (
-                                <button
-                                  key={val}
-                                  type="button"
-                                  onClick={() => handleChange('sensitivity', val)}
-                                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-none transition-colors ${formData.sensitivity === val ? 'bg-[#0B0B0B] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                                >
-                                  {val}
-                                </button>
-                              ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">Pre-op Check</label>
-                            <label className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-300 hover:bg-gray-50">
-                              <input
-                                type="checkbox"
-                                checked={formData.agentReadiness}
-                                onChange={(e) => handleChange('agentReadiness', e.target.checked)}
-                                className="h-4 w-4 text-[#0B0B0B] border-gray-300 focus:ring-0 rounded-none accent-[#0B0B0B]"
-                              />
-                              <span className="text-sm text-gray-600">MD Guide Uploaded</span>
-                            </label>
-                        </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-widest text-[#0B0B0B]">Risk Sensitivity</label>
+                      <div className="flex border border-gray-300">
+                          {Object.values(ProductSensitivity).map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => handleChange('sensitivity', val)}
+                              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-none transition-colors ${formData.sensitivity === val ? 'bg-[#0B0B0B] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                            >
+                              {val}
+                            </button>
+                          ))}
+                      </div>
                     </div>
 
                     {/* Conditional High-Stakes Section */}

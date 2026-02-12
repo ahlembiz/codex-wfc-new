@@ -111,7 +111,6 @@ export const runDiagnosis = async (data: AssessmentData): Promise<DiagnosisResul
     - Company: ${data.company}
     - Stage: ${data.stage}
     - Team Size: ${data.teamSize}
-    - Is Solo Founder: ${data.isSoloFounder ? "YES" : "NO"}
     - Current Tools: ${data.currentTools}
     - Automation Philosophy: ${data.philosophy}
     - Tech Savviness: ${data.techSavviness}
@@ -119,9 +118,10 @@ export const runDiagnosis = async (data: AssessmentData): Promise<DiagnosisResul
     - Cost Sensitivity: ${data.costSensitivity}
     - Product Sensitivity: ${data.sensitivity}
     - High-Stakes Specifics: ${data.highStakesRequirements.join(", ") || "N/A"}
-    - Agent Readiness: ${data.agentReadiness ? "Uploaded .md guides" : "None"}
     - Anchor Preference: ${specificAnchor}
     - Reported Pain Points: ${data.painPoints.join(", ")}
+    - Phase Priorities: ${data.phasePriorities?.join(", ") || "All phases equal"}
+    - Desired Capabilities: ${data.desiredCapabilities?.join(", ") || "All categories"}
 
     CLINICAL KNOWLEDGE BASE (Tool Interoperability & Simplification Logic):
     ...

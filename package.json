@@ -29,6 +29,7 @@
     "@vercel/node": "^3.2.0",
     "ag-grid-community": "^35.0.1",
     "ag-grid-react": "^35.0.1",
+    "openai": "^6.21.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

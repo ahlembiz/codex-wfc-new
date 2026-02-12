@@ -7,6 +7,7 @@ vi.mock('../../db', () => ({
   prisma: {
     toolPhaseCapability: { findMany: vi.fn() },
     automationRecipe: { findMany: vi.fn() },
+    workflowBucket: { findMany: vi.fn() },
   },
 }));
 
@@ -36,9 +37,9 @@ function createMockCapability(overrides: Record<string, any> = {}) {
     updatedAt: new Date(),
     bucket: {
       id: 'bucket-1',
-      phase: 'PLANNING' as WorkflowPhase,
+      phase: 'DECIDE' as WorkflowPhase,
       name: 'Spec Writing',
-      slug: 'planning-spec-writing',
+      slug: 'decide-spec-writing',
       description: 'Write specs',
       displayOrder: 2,
       inputs: [] as string[],
@@ -61,12 +62,25 @@ function createMockRecipe(overrides: Record<string, any> = {}) {
     actionDetail: 'Auto-create feature branch',
     connectorType: 'NATIVE' as ConnectorType,
     connectorDetail: null,
-    phases: ['EXECUTION'] as WorkflowPhase[],
+    phases: ['BUILD'] as WorkflowPhase[],
     philosophyFit: ['Hybrid', 'Auto-Pilot'],
     setupDifficulty: 'PLUG_AND_PLAY' as SetupDifficulty,
     techSavviness: 'DECENT' as TechSavviness,
     timeSavedPerWeek: 1.5,
     humanBehaviorChange: 'Start work from Linear',
+    // Research metadata (optional fields)
+    confidence: null,
+    sourceCount: null,
+    sourceTypes: [],
+    segmentCoverage: null,
+    adoptionCount: null,
+    biasFlags: [],
+    researchDate: null,
+    lastValidated: null,
+    researchStatus: null,
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewNotes: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     triggerTool: createMockTool({ id: 'tool-linear', name: 'linear', displayName: 'Linear', category: 'PROJECT_MANAGEMENT' }),
@@ -88,10 +102,12 @@ describe('WorkflowIntelligenceService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new WorkflowIntelligenceService();
+    // Default: return empty buckets (tests can override)
+    vi.mocked(prisma.workflowBucket.findMany).mockResolvedValue([]);
   });
 
   describe('buildIntelligentWorkflow', () => {
-    it('should return 5 workflow steps', async () => {
+    it('should return 7 workflow steps', async () => {
       const notion = createMockTool({ id: 'tool-notion', name: 'notion', displayName: 'Notion', category: 'DOCUMENTATION' });
       mockFindToolForPhase.mockReturnValue(notion);
 
@@ -106,9 +122,9 @@ describe('WorkflowIntelligenceService', () => {
         mockGetFallbackRoles,
       );
 
-      expect(result).toHaveLength(5);
+      expect(result).toHaveLength(7);
       expect(result.map(s => s.phase)).toEqual([
-        'Ideation', 'Planning', 'Execution', 'Review', 'Iterate',
+        'Discover', 'Decide', 'Design', 'Build', 'Launch', 'Review', 'Iterate',
       ]);
     });
 
@@ -116,15 +132,15 @@ describe('WorkflowIntelligenceService', () => {
       const notion = createMockTool({ id: 'tool-notion', name: 'notion', displayName: 'Notion', category: 'DOCUMENTATION' });
       mockFindToolForPhase.mockReturnValue(notion);
 
-      const planningCap = createMockCapability({
+      const decideCap = createMockCapability({
         toolId: 'tool-notion',
         bucket: {
           ...createMockCapability().bucket,
-          phase: 'PLANNING',
+          phase: 'DECIDE',
         },
       });
 
-      vi.mocked(prisma.toolPhaseCapability.findMany).mockResolvedValue([planningCap]);
+      vi.mocked(prisma.toolPhaseCapability.findMany).mockResolvedValue([decideCap]);
       vi.mocked(prisma.automationRecipe.findMany).mockResolvedValue([]);
 
       const result = await service.buildIntelligentWorkflow(
@@ -135,10 +151,10 @@ describe('WorkflowIntelligenceService', () => {
         mockGetFallbackRoles,
       );
 
-      const planningStep = result.find(s => s.phase === 'Planning');
-      expect(planningStep?.subSteps).toHaveLength(1);
-      expect(planningStep?.subSteps?.[0].featureName).toBe('Notion AI Writer');
-      expect(planningStep?.aiAgentRole).toContain('Notion AI Writer');
+      const decideStep = result.find(s => s.phase === 'Decide');
+      expect(decideStep?.subSteps).toHaveLength(1);
+      expect(decideStep?.subSteps?.[0].featureName).toBe('Notion AI Writer');
+      expect(decideStep?.aiAgentRole).toContain('Notion AI Writer');
     });
 
     it('should fall back to generic roles (tier 2) when no capabilities exist', async () => {
@@ -156,9 +172,9 @@ describe('WorkflowIntelligenceService', () => {
         mockGetFallbackRoles,
       );
 
-      const ideationStep = result.find(s => s.phase === 'Ideation');
-      expect(ideationStep?.aiAgentRole).toBe('Generic AI role');
-      expect(ideationStep?.subSteps).toBeUndefined();
+      const discoverStep = result.find(s => s.phase === 'Discover');
+      expect(discoverStep?.aiAgentRole).toBe('Generic AI role');
+      expect(discoverStep?.subSteps).toBeUndefined();
     });
 
     it('should include automation recipes when applicable', async () => {
@@ -177,10 +193,10 @@ describe('WorkflowIntelligenceService', () => {
         mockGetFallbackRoles,
       );
 
-      const executionStep = result.find(s => s.phase === 'Execution');
-      expect(executionStep?.automations).toHaveLength(1);
-      expect(executionStep?.automations?.[0].triggerTool).toBe('Linear');
-      expect(executionStep?.automations?.[0].actionTool).toBe('GitHub');
+      const buildStep = result.find(s => s.phase === 'Build');
+      expect(buildStep?.automations).toHaveLength(1);
+      expect(buildStep?.automations?.[0].triggerTool).toBe('Linear');
+      expect(buildStep?.automations?.[0].actionTool).toBe('GitHub');
     });
   });
 

@@ -12,6 +12,9 @@ import {
   VALID_COST_SENSITIVITY,
   VALID_SENSITIVITY,
   VALID_ANCHOR_TYPES,
+  VALID_PAIN_POINTS,
+  VALID_TOOL_CATEGORIES,
+  WORKFLOW_PHASES_V2,
 } from '../constants';
 
 // Validation error
@@ -40,11 +43,11 @@ export interface ValidatedAssessmentData {
   costSensitivity: string;
   sensitivity: string;
   highStakesRequirements: ComplianceRequirement[];
-  agentReadiness: boolean;
   anchorType: string;
   painPoints: string[];
-  isSoloFounder: boolean;
   otherAnchorText: string;
+  phasePriorities?: string[];
+  desiredCapabilities?: string[];
 }
 
 const VALID_TEAM_SIZE_BUCKETS = Object.values(TeamSizeBucket);
@@ -212,24 +215,51 @@ export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
     errors.highStakesRequirements = 'High stakes requirements must be an array';
   }
 
-  if (typeof data.agentReadiness !== 'boolean') {
-    errors.agentReadiness = 'Agent readiness must be a boolean';
-  }
-
   if (!data.anchorType || !VALID_ANCHOR_TYPES.includes(data.anchorType as string)) {
     errors.anchorType = `Anchor type must be one of: ${VALID_ANCHOR_TYPES.join(', ')}`;
   }
 
   if (!Array.isArray(data.painPoints)) {
     errors.painPoints = 'Pain points must be an array';
-  }
-
-  if (typeof data.isSoloFounder !== 'boolean') {
-    errors.isSoloFounder = 'Is solo founder must be a boolean';
+  } else {
+    // Validate pain point values are engine-actionable enums
+    const invalidPainPoints = (data.painPoints as string[]).filter(
+      p => !VALID_PAIN_POINTS.includes(p as any)
+    );
+    if (invalidPainPoints.length > 0) {
+      errors.painPoints = `Invalid pain points: ${invalidPainPoints.join(', ')}. Valid: ${VALID_PAIN_POINTS.join(', ')}`;
+    }
   }
 
   if (typeof data.otherAnchorText !== 'string') {
     errors.otherAnchorText = 'Other anchor text must be a string';
+  }
+
+  // Optional: phasePriorities
+  if (data.phasePriorities !== undefined) {
+    if (!Array.isArray(data.phasePriorities)) {
+      errors.phasePriorities = 'Phase priorities must be an array';
+    } else {
+      const validPhases = WORKFLOW_PHASES_V2 as readonly string[];
+      const invalidPhases = (data.phasePriorities as string[]).filter(p => !validPhases.includes(p));
+      if (invalidPhases.length > 0) {
+        errors.phasePriorities = `Invalid phases: ${invalidPhases.join(', ')}. Valid: ${validPhases.join(', ')}`;
+      }
+    }
+  }
+
+  // Optional: desiredCapabilities
+  if (data.desiredCapabilities !== undefined) {
+    if (!Array.isArray(data.desiredCapabilities)) {
+      errors.desiredCapabilities = 'Desired capabilities must be an array';
+    } else {
+      const invalidCaps = (data.desiredCapabilities as string[]).filter(
+        c => !VALID_TOOL_CATEGORIES.includes(c)
+      );
+      if (invalidCaps.length > 0) {
+        errors.desiredCapabilities = `Invalid capabilities: ${invalidCaps.join(', ')}. Valid: ${VALID_TOOL_CATEGORIES.join(', ')}`;
+      }
+    }
   }
 
   if (Object.keys(errors).length > 0) {
@@ -240,7 +270,7 @@ export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
   const normalizedTeamSize = normalizeTeamSize(rawTeamSize as string, isSoloFounder);
   const normalizedCompliance = normalizeComplianceRequirements(data.highStakesRequirements as unknown[]);
 
-  return {
+  const result: ValidatedAssessmentData = {
     company: data.company as string,
     stage: data.stage as string,
     teamSize: normalizedTeamSize,
@@ -252,12 +282,19 @@ export function validateAssessmentData(body: unknown): ValidatedAssessmentData {
     costSensitivity: data.costSensitivity as string,
     sensitivity: data.sensitivity as string,
     highStakesRequirements: normalizedCompliance,
-    agentReadiness: data.agentReadiness as boolean,
     anchorType: data.anchorType as string,
     painPoints: data.painPoints as string[],
-    isSoloFounder,
     otherAnchorText: (data.otherAnchorText as string) || '',
   };
+
+  if (Array.isArray(data.phasePriorities) && data.phasePriorities.length > 0) {
+    result.phasePriorities = data.phasePriorities as string[];
+  }
+  if (Array.isArray(data.desiredCapabilities) && data.desiredCapabilities.length > 0) {
+    result.desiredCapabilities = data.desiredCapabilities as string[];
+  }
+
+  return result;
 }
 
 // Tool match request validation

@@ -38,9 +38,11 @@ export class WorkflowGenerator {
   ): GeneratedWorkflow {
     const steps: DetailedWorkflowStep[] = [];
     const phases: Array<{ enum: WorkflowPhase; name: string }> = [
-      { enum: 'IDEATION', name: 'Ideation' },
-      { enum: 'PLANNING', name: 'Planning' },
-      { enum: 'EXECUTION', name: 'Execution' },
+      { enum: 'DISCOVER', name: 'Discover' },
+      { enum: 'DECIDE', name: 'Decide' },
+      { enum: 'DESIGN', name: 'Design' },
+      { enum: 'BUILD', name: 'Build' },
+      { enum: 'LAUNCH', name: 'Launch' },
       { enum: 'REVIEW', name: 'Review' },
       { enum: 'ITERATE', name: 'Iterate' },
     ];
@@ -75,10 +77,12 @@ export class WorkflowGenerator {
   private selectToolForPhase(tools: Tool[], phase: WorkflowPhase): Tool {
     // Map phases to preferred categories
     const phasePreferences: Partial<Record<WorkflowPhase, string[]>> = {
-      IDEATION: ['DOCUMENTATION', 'AI_ASSISTANTS', 'PROJECT_MANAGEMENT'],
-      PLANNING: ['PROJECT_MANAGEMENT', 'DOCUMENTATION'],
-      EXECUTION: ['DEVELOPMENT', 'AI_BUILDERS', 'DESIGN', 'AI_ASSISTANTS'],
-      REVIEW: ['MEETINGS', 'COMMUNICATION', 'DOCUMENTATION'],
+      DISCOVER: ['DOCUMENTATION', 'AI_ASSISTANTS', 'COMMUNICATION', 'GROWTH'],
+      DECIDE: ['PROJECT_MANAGEMENT', 'DOCUMENTATION', 'AI_ASSISTANTS'],
+      DESIGN: ['DESIGN', 'AI_BUILDERS'],
+      BUILD: ['DEVELOPMENT', 'AI_BUILDERS', 'AI_ASSISTANTS', 'PROJECT_MANAGEMENT'],
+      LAUNCH: ['DEVELOPMENT', 'AUTOMATION', 'COMMUNICATION', 'ANALYTICS'],
+      REVIEW: ['MEETINGS', 'COMMUNICATION', 'ANALYTICS'],
       ITERATE: ['ANALYTICS', 'GROWTH', 'PROJECT_MANAGEMENT', 'DOCUMENTATION'],
     };
 
@@ -128,7 +132,7 @@ export class WorkflowGenerator {
     const isHybrid = philosophy === 'Hybrid';
 
     const roles: Partial<Record<WorkflowPhase, { auto: any; hybrid: any; copilot: any }>> = {
-      IDEATION: {
+      DISCOVER: {
         auto: {
           aiRole: 'Autonomous idea generation from market data, user feedback, and competitor analysis',
           humanRole: 'Strategic prioritization and approval of AI-generated concepts',
@@ -145,7 +149,7 @@ export class WorkflowGenerator {
           outcome: 'Human-driven feature backlog',
         },
       },
-      PLANNING: {
+      DECIDE: {
         auto: {
           aiRole: 'Auto-generate specs, create and assign tickets, estimate complexity',
           humanRole: 'Approve generated artifacts, adjust edge cases',
@@ -162,7 +166,24 @@ export class WorkflowGenerator {
           outcome: 'Human-authored project plan',
         },
       },
-      EXECUTION: {
+      DESIGN: {
+        auto: {
+          aiRole: 'Generate UI mockups from specs, create design variations, build prototypes',
+          humanRole: 'Review designs, ensure brand consistency, approve specs',
+          outcome: 'AI-generated design specs with human approval',
+        },
+        hybrid: {
+          aiRole: 'Suggest layouts, auto-generate component variants, assist with prototyping',
+          humanRole: 'Create wireframes, refine AI-generated designs, build interactions',
+          outcome: 'Collaborative design with AI-assisted prototypes',
+        },
+        copilot: {
+          aiRole: 'Provide design templates, auto-layout assistance',
+          humanRole: 'Lead design process, create all wireframes and prototypes',
+          outcome: 'Human-designed prototypes with AI assist',
+        },
+      },
+      BUILD: {
         auto: {
           aiRole: 'Generate code implementations, create designs from specs, run tests',
           humanRole: 'Code review, quality gates, complex problem-solving',
@@ -177,6 +198,23 @@ export class WorkflowGenerator {
           aiRole: 'Code completion, syntax suggestions, linting',
           humanRole: 'Write all code, make all technical decisions',
           outcome: 'Human-written implementation with AI assist',
+        },
+      },
+      LAUNCH: {
+        auto: {
+          aiRole: 'Auto-deploy to staging/production, run smoke tests, notify channels',
+          humanRole: 'Approve production deploys, monitor rollout health',
+          outcome: 'Automated deployment with monitoring',
+        },
+        hybrid: {
+          aiRole: 'Prepare deployment configs, run pre-flight checks, draft announcements',
+          humanRole: 'Trigger deploys, verify health checks, coordinate launch',
+          outcome: 'Semi-automated deployment with human oversight',
+        },
+        copilot: {
+          aiRole: 'Assist with deployment scripts, surface deployment checklists',
+          humanRole: 'Manage full deployment process, coordinate launch',
+          outcome: 'Human-managed deployment with AI tooling',
         },
       },
       REVIEW: {
@@ -248,9 +286,11 @@ export class WorkflowGenerator {
     const isHybrid = philosophy === 'Hybrid';
 
     const estimates: Partial<Record<WorkflowPhase, { auto: string; hybrid: string; copilot: string }>> = {
-      IDEATION: { auto: '1-2 hrs', hybrid: '3-4 hrs', copilot: '5-6 hrs' },
-      PLANNING: { auto: '2-3 hrs', hybrid: '4-6 hrs', copilot: '8-10 hrs' },
-      EXECUTION: { auto: '10-15 hrs', hybrid: '20-25 hrs', copilot: '30-40 hrs' },
+      DISCOVER: { auto: '1-2 hrs', hybrid: '3-4 hrs', copilot: '5-6 hrs' },
+      DECIDE: { auto: '1-2 hrs', hybrid: '2-3 hrs', copilot: '4-5 hrs' },
+      DESIGN: { auto: '2-3 hrs', hybrid: '4-6 hrs', copilot: '8-10 hrs' },
+      BUILD: { auto: '10-15 hrs', hybrid: '20-25 hrs', copilot: '30-40 hrs' },
+      LAUNCH: { auto: '1-2 hrs', hybrid: '2-3 hrs', copilot: '3-4 hrs' },
       REVIEW: { auto: '1-2 hrs', hybrid: '2-3 hrs', copilot: '3-4 hrs' },
       ITERATE: { auto: '1-2 hrs', hybrid: '2-3 hrs', copilot: '4-5 hrs' },
     };
@@ -271,9 +311,11 @@ export class WorkflowGenerator {
 
     // Weekly hours per phase
     const baseHours: Partial<Record<WorkflowPhase, number>> = {
-      IDEATION: 4,
-      PLANNING: 6,
-      EXECUTION: 25,
+      DISCOVER: 3,
+      DECIDE: 3,
+      DESIGN: 5,
+      BUILD: 20,
+      LAUNCH: 3,
       REVIEW: 3,
       ITERATE: 2,
     };

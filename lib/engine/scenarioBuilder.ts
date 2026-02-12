@@ -4,6 +4,7 @@ import { getReplacementService } from '../services/replacementService';
 import { getToolService } from '../services/toolService';
 import { getToolIntegrationService } from '../services/toolIntegrationService';
 import { getWorkflowIntelligenceService } from '../services/workflowIntelligenceService';
+import { getClusterService, type ClusterMatch } from '../services/clusterService';
 import { buildScenarioRationale } from './scenarioRationale';
 import {
   buildScenarioWeights,
@@ -20,6 +21,13 @@ import type { WorkflowStep, WeightProfile } from '../../types';
 export type { WorkflowStep } from '../../types';
 export type { ScenarioRationale } from './scenarioRationale';
 
+export interface ClusterMetadata {
+  name: string;
+  description: string;
+  synergyType: string;
+  matchScore: number;
+}
+
 export interface BuiltScenario {
   title: string;
   scenarioType: ScenarioType;
@@ -30,6 +38,7 @@ export interface BuiltScenario {
   complexityReductionScore: number;
   description?: string;
   rationale?: ScenarioRationale;
+  matchedClusters?: ClusterMetadata[];
 }
 
 // Hardcoded multi-phase tool names — used as fallback when DB has no ToolPhaseCapability data
@@ -45,6 +54,7 @@ export class ScenarioBuilder {
   private toolService = getToolService();
   private toolIntegrationService = getToolIntegrationService();
   private workflowIntelligenceService = getWorkflowIntelligenceService();
+  private clusterService = getClusterService();
   private toolPhaseResolver = getToolPhaseResolver();
 
   // Cached phase category map (populated once per buildAllScenarios call)
@@ -219,6 +229,9 @@ export class ScenarioBuilder {
     // Remove any redundant tools
     tools = await this.removeRedundantTools(tools, anchorTool?.id);
 
+    // Match against approved clusters for narrative enrichment
+    const matchedClusters = await this.findMatchingClusters(tools);
+
     const additionalDisplacements = userTools
       .filter(ut => !tools.some(t => t.id === ut.id))
       .map(ut => ut.displayName);
@@ -234,6 +247,7 @@ export class ScenarioBuilder {
       estimatedMonthlyCostPerUser: this.calculateCost(tools),
       complexityReductionScore: this.calculateComplexityReduction(userTools.length, tools.length),
       rationale: buildScenarioRationale('NATIVE_INTEGRATOR', context.assessment),
+      matchedClusters,
     };
   }
 
@@ -345,6 +359,9 @@ export class ScenarioBuilder {
     // Remove redundant tools
     tools = await this.removeRedundantTools(tools);
 
+    // Match against approved clusters for narrative enrichment
+    const matchedClusters = await this.findMatchingClusters(tools);
+
     const additionalDisplacements = userTools
       .filter(ut => !tools.some(t => t.id === ut.id))
       .map(ut => ut.displayName);
@@ -360,12 +377,32 @@ export class ScenarioBuilder {
       estimatedMonthlyCostPerUser: this.calculateCost(tools),
       complexityReductionScore: this.calculateComplexityReduction(userTools.length, tools.length),
       rationale: buildScenarioRationale('AGENTIC_LEAN', context.assessment),
+      matchedClusters,
     };
   }
 
   // ============================================
   // Helper Methods
   // ============================================
+
+  /**
+   * Find approved clusters that match the selected tools.
+   * Returns cluster metadata for narrative enrichment.
+   */
+  private async findMatchingClusters(tools: Tool[]): Promise<ClusterMetadata[]> {
+    try {
+      const matches = await this.clusterService.findClustersForTools(tools, 60);
+      return matches.slice(0, 3).map(m => ({
+        name: m.cluster.name,
+        description: m.cluster.description,
+        synergyType: m.cluster.synergyType,
+        matchScore: m.matchScore,
+      }));
+    } catch {
+      // Non-critical — don't fail scenario building if cluster matching fails
+      return [];
+    }
+  }
 
   private hasToolCategory(tools: Tool[], category: string): boolean {
     return tools.some(t => t.category === category);

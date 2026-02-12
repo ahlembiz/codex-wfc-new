@@ -1,4 +1,4 @@
-import type { Tool } from '@prisma/client';
+import type { Tool, ToolCluster } from '@prisma/client';
 
 /**
  * Create a mock Tool with sensible defaults.
@@ -43,4 +43,36 @@ export function createMockTool(overrides: Partial<Tool> = {}): Tool {
     updatedAt: new Date(),
     ...overrides,
   };
+}
+
+/**
+ * Create a mock ToolCluster with sensible defaults.
+ * Override any field via the `overrides` parameter.
+ */
+export function createMockCluster(overrides: Partial<ToolCluster> = {}): ToolCluster {
+  return {
+    id: 'cluster-1',
+    name: 'Test Cluster',
+    description: 'A test cluster for testing',
+    synergyStrength: 75,
+    synergyType: 'complementary',
+    bestForStage: ['PRE_SEED', 'EARLY_SEED'],
+    bestForTeamSize: ['SMALL', 'MEDIUM'],
+    bestForTechSavviness: ['DECENT'],
+    confidence: 70,
+    sourceCount: 5,
+    sourceTypes: ['reddit', 'youtube_transcript'],
+    segmentCoverage: null,
+    adoptionCount: null,
+    biasFlags: [],
+    researchDate: new Date(),
+    lastValidated: null,
+    status: 'approved',
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewNotes: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as ToolCluster;
 }

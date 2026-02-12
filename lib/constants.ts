@@ -92,6 +92,20 @@ export const PHILOSOPHY_MODIFIERS: Record<string, Partial<Record<string, number>
   'Co-Pilot':   { ai: -0.10, popularity: 0.10 },
 };
 
-export const VALID_CONNECTOR_TYPES = ['NATIVE', 'ZAPIER', 'API', 'WEBHOOK', 'BROWSER_EXT', 'MANUAL'];
+export const VALID_CONNECTOR_TYPES = ['NATIVE', 'ZAPIER', 'API', 'WEBHOOK', 'BROWSER_EXT', 'MANUAL', 'GITHUB_ACTIONS', 'MAKE', 'MCP', 'SLACK_WORKFLOW'];
 export const VALID_AUTOMATION_LEVELS = ['FULL', 'SUPERVISED', 'ASSISTED', 'MANUAL'];
 export const VALID_SETUP_DIFFICULTIES = ['PLUG_AND_PLAY', 'GUIDED', 'TECHNICAL', 'CUSTOM_DEV'];
+
+// Research Intelligence constants
+export const VALID_SYNERGY_TYPES = ['complementary', 'sequential', 'hub-spoke', 'parallel', 'layered'] as const;
+export const VALID_RESEARCH_STATUSES = ['pending', 'approved', 'rejected', 'needs_research'] as const;
+export const VALID_DATA_POINT_STATUSES = ['raw', 'processed', 'validated', 'rejected'] as const;
+export const VALID_SOURCE_TYPES = [
+  'youtube_transcript', 'youtube_comments', 'reddit', 'hackernews',
+  'indie_hackers', 'zapier_templates', 'make_templates', 'n8n_templates',
+  'product_hunt', 'g2_reviews', 'capterra_reviews', 'manual',
+] as const;
+export const VALID_SEGMENT_ROLES = [
+  'founder', 'developer', 'designer', 'marketer', 'product_manager',
+  'operations', 'freelancer', 'agency',
+] as const;

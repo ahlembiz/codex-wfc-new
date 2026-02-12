@@ -12,3 +12,9 @@ export {
   validateToolUpdate,
 } from './validation';
 export type { ValidatedAssessmentData, ValidatedToolMatchRequest } from './validation';
+export {
+  validateClusterCreate,
+  validateClusterUpdate,
+  validateBulkAction,
+  validateDataPointCreate,
+} from './researchValidation';

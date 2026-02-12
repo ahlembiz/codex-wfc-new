@@ -74,12 +74,13 @@ export class WorkflowIntelligenceService {
     const isAutomatic = philosophy === 'Auto-Pilot';
     const isHybrid = philosophy === 'Hybrid';
     const toolIds = tools.map(t => t.id);
-    const phases = ['Ideation', 'Planning', 'Execution', 'Review', 'Iterate'];
+    const phases = ['Discover', 'Decide', 'Design', 'Build', 'Launch', 'Review', 'Iterate'];
 
-    // Fetch capabilities and recipes in parallel
-    const [capabilitiesMap, recipes] = await Promise.all([
+    // Fetch capabilities, recipes, and buckets in parallel
+    const [capabilitiesMap, recipes, allBuckets] = await Promise.all([
       this.getCapabilitiesByPhase(toolIds, philosophy, techSavviness),
       this.findApplicableRecipes(toolIds, philosophy, techSavviness),
+      this.getBucketsByPhase(),
     ]);
 
     const workflow: IntelligentWorkflowStep[] = [];
@@ -124,7 +125,7 @@ export class WorkflowIntelligenceService {
 
         workflow.push({
           phase,
-          tool: phaseTool?.displayName || 'TBD',
+          tool: phaseTool?.displayName || this.getFallbackToolName(phase),
           aiAgentRole: aiRole,
           humanRole,
           outcome,
@@ -133,8 +134,21 @@ export class WorkflowIntelligenceService {
           secondaryTools: secondaryToolNames.length > 0 ? secondaryToolNames : undefined,
         });
       } else {
-        // Tier 2: Category-generic fallback (existing hardcoded roles)
+        // Tier 2: Category-generic fallback with bucket-derived sub-steps
         const roles = getFallbackRoles(phase, isAutomatic, isHybrid);
+        const toolName = phaseTool?.displayName || this.getFallbackToolName(phase);
+
+        // Build sub-steps from workflow buckets so every phase is collapsible
+        const phaseBuckets = allBuckets.get(phaseEnum) || [];
+        const bucketSubSteps = phaseBuckets.map(bucket => ({
+          bucket: bucket.name,
+          tool: toolName,
+          featureName: bucket.name,
+          aiAction: bucket.description,
+          humanAction: `Lead ${bucket.name.toLowerCase()}`,
+          artifact: bucket.outputs.join(', '),
+          automationLevel: 'ASSISTED',
+        }));
 
         const automations = phaseRecipes.map(r => ({
           name: `${r.triggerTool.displayName} → ${r.actionTool.displayName}`,
@@ -149,10 +163,11 @@ export class WorkflowIntelligenceService {
 
         workflow.push({
           phase,
-          tool: phaseTool?.displayName || this.getFallbackToolName(phase),
+          tool: toolName,
           aiAgentRole: roles.aiRole,
           humanRole: roles.humanRole,
           outcome: roles.outcome,
+          subSteps: bucketSubSteps.length > 0 ? bucketSubSteps : undefined,
           automations: automations.length > 0 ? automations : undefined,
           secondaryTools: secondaryToolNames.length > 0 ? secondaryToolNames : undefined,
         });
@@ -277,6 +292,24 @@ export class WorkflowIntelligenceService {
     return chains;
   }
 
+  /**
+   * Get all workflow buckets grouped by phase.
+   */
+  async getBucketsByPhase(): Promise<Map<WorkflowPhase, WorkflowBucket[]>> {
+    const buckets = await prisma.workflowBucket.findMany({
+      orderBy: { displayOrder: 'asc' },
+    });
+
+    const grouped = new Map<WorkflowPhase, WorkflowBucket[]>();
+    for (const bucket of buckets) {
+      const existing = grouped.get(bucket.phase) || [];
+      existing.push(bucket);
+      grouped.set(bucket.phase, existing);
+    }
+
+    return grouped;
+  }
+
   // ============================================
   // Private Helpers
   // ============================================
@@ -344,9 +377,11 @@ export class WorkflowIntelligenceService {
 
   private getFallbackToolName(phase: string): string {
     const fallbacks: Record<string, string> = {
-      'Ideation': 'Documentation Tool',
-      'Planning': 'Project Management Tool',
-      'Execution': 'Development Tool',
+      'Discover': 'Documentation Tool',
+      'Decide': 'Project Management Tool',
+      'Design': 'Design Tool',
+      'Build': 'Development Tool',
+      'Launch': 'Deployment Tool',
       'Review': 'Meeting Tool',
       'Iterate': 'Analytics Tool',
     };

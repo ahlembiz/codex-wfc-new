@@ -15,6 +15,18 @@ import toolByIdHandler from './api/tools/[id]';
 import toolEnrichHandler from './api/tools/[id]/enrich';
 import bundlesHandler from './api/bundles';
 
+// Admin: Research Intelligence
+import adminClustersHandler from './api/admin/clusters/index';
+import adminClusterByIdHandler from './api/admin/clusters/[id]';
+import adminClustersBulkHandler from './api/admin/clusters/bulk';
+import adminRecipesHandler from './api/admin/recipes/index';
+import adminRecipeByIdHandler from './api/admin/recipes/[id]';
+import adminRecipesBulkHandler from './api/admin/recipes/bulk';
+import adminResearchDataHandler from './api/admin/research-data/index';
+import adminResearchDataByIdHandler from './api/admin/research-data/[id]';
+import adminBiasAuditHandler from './api/admin/bias-audit';
+import adminClusterFuckStatsHandler from './api/admin/cluster-fuck/stats';
+
 const PORT = 3005;
 
 // Simple request/response adapter for Vercel handlers
@@ -97,6 +109,34 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       await toolsMatchHandler(vercelReq, vercelRes);
     } else if (url === '/api/bundles' || url === '/api/bundles/' || url.startsWith('/api/bundles?')) {
       await bundlesHandler(vercelReq, vercelRes);
+    }
+    // Admin: Research Intelligence routes
+    else if (url === '/api/admin/clusters/bulk' || url === '/api/admin/clusters/bulk/') {
+      await adminClustersBulkHandler(vercelReq, vercelRes);
+    } else if (url.match(/^\/api\/admin\/clusters\/[^\/]+\/?$/) && !url.includes('bulk')) {
+      const id = url.split('/api/admin/clusters/')[1].replace(/\/$/, '');
+      vercelReq.query = { ...vercelReq.query, id };
+      await adminClusterByIdHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/clusters' || url === '/api/admin/clusters/' || url.startsWith('/api/admin/clusters?')) {
+      await adminClustersHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/recipes/bulk' || url === '/api/admin/recipes/bulk/') {
+      await adminRecipesBulkHandler(vercelReq, vercelRes);
+    } else if (url.match(/^\/api\/admin\/recipes\/[^\/]+\/?$/) && !url.includes('bulk')) {
+      const id = url.split('/api/admin/recipes/')[1].replace(/\/$/, '');
+      vercelReq.query = { ...vercelReq.query, id };
+      await adminRecipeByIdHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/recipes' || url === '/api/admin/recipes/' || url.startsWith('/api/admin/recipes?')) {
+      await adminRecipesHandler(vercelReq, vercelRes);
+    } else if (url.match(/^\/api\/admin\/research-data\/[^\/]+\/?$/)) {
+      const id = url.split('/api/admin/research-data/')[1].replace(/\/$/, '');
+      vercelReq.query = { ...vercelReq.query, id };
+      await adminResearchDataByIdHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/research-data' || url === '/api/admin/research-data/' || url.startsWith('/api/admin/research-data?')) {
+      await adminResearchDataHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/bias-audit' || url === '/api/admin/bias-audit/') {
+      await adminBiasAuditHandler(vercelReq, vercelRes);
+    } else if (url === '/api/admin/cluster-fuck/stats' || url === '/api/admin/cluster-fuck/stats/') {
+      await adminClusterFuckStatsHandler(vercelReq, vercelRes);
     } else {
       res.writeHead(404);
       res.end(JSON.stringify({ error: 'Not found', path: url }));
@@ -126,6 +166,18 @@ Available endpoints:
   DELETE /api/tools/:id         - Delete a tool
   POST   /api/tools/:id/enrich  - AI-powered data enrichment
   GET    /api/bundles           - List all bundles
+
+  Admin - Research Intelligence:
+  GET/POST /api/admin/clusters     - List/create clusters
+  GET/PATCH /api/admin/clusters/:id - Get/update cluster
+  POST   /api/admin/clusters/bulk  - Bulk approve/reject/flag
+  GET    /api/admin/recipes        - List recipes (research-enhanced)
+  PATCH  /api/admin/recipes/:id    - Update recipe research metadata
+  POST   /api/admin/recipes/bulk   - Bulk approve/reject
+  GET/POST /api/admin/research-data - List/create data points
+  PATCH  /api/admin/research-data/:id - Update data point status
+  GET    /api/admin/bias-audit     - Run bias audit (12 checks)
+  GET    /api/admin/cluster-fuck/stats - Aggregate stats
 
 Set VITE_API_URL=http://localhost:${PORT}/api in .env.local
 `);

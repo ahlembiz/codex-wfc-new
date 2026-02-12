@@ -118,6 +118,10 @@ enum ConnectorType {
   WEBHOOK       // Webhook-based
   BROWSER_EXT   // Browser extension bridge
   MANUAL        // Copy-paste / manual handoff
+  GITHUB_ACTIONS // GitHub Actions workflow
+  MAKE          // Make (Integromat) scenario
+  MCP           // Model Context Protocol
+  SLACK_WORKFLOW // Slack Workflow Builder
 }
 
 enum AutomationLevel {
@@ -213,6 +217,9 @@ model Tool {
   phaseCapabilities     ToolPhaseCapability[]
   recipesAsTrigger      AutomationRecipe[] @relation("RecipeTriggerTool")
   recipesAsAction       AutomationRecipe[] @relation("RecipeActionTool")
+
+  // Research Intelligence relations
+  clusterMemberships    ClusterTool[]
 
   @@index([category])
   @@index([name])
@@ -407,6 +414,20 @@ model AutomationRecipe {
   timeSavedPerWeek    Float           @default(0) // hours saved per week
   humanBehaviorChange String?         // what the human needs to change
 
+  // Research metadata (optional, backward-compatible)
+  confidence        Int?
+  sourceCount       Int?
+  sourceTypes       String[]
+  segmentCoverage   Json?
+  adoptionCount     Int?
+  biasFlags         String[]
+  researchDate      DateTime?
+  lastValidated     DateTime?
+  researchStatus    String?         // pending | approved | rejected | needs_research
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+
   triggerTool         Tool            @relation("RecipeTriggerTool", fields: [triggerToolId], references: [id], onDelete: Cascade)
   actionTool          Tool            @relation("RecipeActionTool", fields: [actionToolId], references: [id], onDelete: Cascade)
 
@@ -416,4 +437,94 @@ model AutomationRecipe {
   @@index([triggerToolId])
   @@index([actionToolId])
   @@index([triggerToolId, actionToolId])
+}
+
+// ============================================
+// RESEARCH INTELLIGENCE MODELS
+// ============================================
+
+model ToolCluster {
+  id                  String          @id @default(cuid())
+  name                String          @unique
+  description         String
+  synergyStrength     Int             @default(50) // 0-100
+  synergyType         String          // e.g. "complementary", "sequential", "hub-spoke"
+  bestForStage        Stage[]
+  bestForTeamSize     TeamSize[]
+  bestForTechSavviness TechSavviness[]
+
+  // Research metadata
+  confidence          Int             @default(50) // 0-100
+  sourceCount         Int             @default(0)
+  sourceTypes         String[]
+  segmentCoverage     Json?
+  adoptionCount       Int?
+  biasFlags           String[]
+  researchDate        DateTime        @default(now())
+  lastValidated       DateTime?
+  status              String          @default("pending") // pending | approved | rejected | needs_research
+
+  // Review tracking
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  reviewNotes         String?
+
+  // Relations
+  tools               ClusterTool[]
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([status, confidence, synergyStrength])
+}
+
+model ClusterTool {
+  id          String      @id @default(cuid())
+  clusterId   String
+  toolId      String
+  role        String?     // role of this tool in the cluster
+
+  cluster     ToolCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  tool        Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([clusterId, toolId])
+  @@index([clusterId])
+  @@index([toolId])
+}
+
+model ResearchDataPoint {
+  id                String    @id @default(cuid())
+  sourceType        String    // youtube_transcript, youtube_comments, reddit, hackernews, etc.
+  sourceUrl         String?
+  sourceDate        DateTime?
+  extractionDate    DateTime  @default(now())
+
+  // Extracted data
+  tools             String[]
+  toolCombination   Boolean   @default(false)
+  automations       Json?
+  workflow          String?
+  abandonment       Json?
+
+  // Segment context
+  segmentTeamSize   String?
+  segmentStage      String?
+  segmentSavviness  String?
+  segmentRole       String?
+
+  // Quality signals
+  confidence        Int       @default(50) // 0-100
+  isSponsored       Boolean   @default(false)
+  sponsoredTools    String[]
+  hasAffiliate      Boolean   @default(false)
+  affiliateTools    String[]
+
+  // Cross-reference
+  crossReferences   String[]
+  contradictions    String[]
+  status            String    @default("raw") // raw | processed | validated | rejected
+
+  createdAt         DateTime  @default(now())
+
+  @@index([sourceType, status, extractionDate])
 }
